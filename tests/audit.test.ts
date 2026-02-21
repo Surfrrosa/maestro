@@ -6,9 +6,9 @@ import { execSync } from 'node:child_process';
 const TEST_DIR = join(process.cwd(), '.test-audit-project');
 const MAESTRO_BIN = join(process.cwd(), 'dist', 'bin', 'maestro.js');
 
-function runAudit(cwd: string): string {
+function runAudit(cwd: string, flags: string = ''): string {
   try {
-    return execSync(`node ${MAESTRO_BIN} audit`, { cwd, encoding: 'utf-8', timeout: 10000 });
+    return execSync(`node ${MAESTRO_BIN} audit ${flags}`, { cwd, encoding: 'utf-8', timeout: 10000 });
   } catch (e: unknown) {
     const error = e as { stdout?: string; stderr?: string };
     return error.stdout || error.stderr || '';
@@ -46,17 +46,25 @@ describe('audit command', () => {
 
   it('detects CLAUDE.md presence', () => {
     setupProject({
-      'CLAUDE.md': '# Project\n## Session Protocol\n## Running\n## Key Files\n',
+      'CLAUDE.md': '# Project\n\nSome real content here.\n\n## Session Protocol\n\nRead the latest session log.\n\n## Running\n\nnpm run dev\n\n## Key Files\n\n| File | Purpose |\n|------|---------|',
     });
     const output = runAudit(TEST_DIR);
     expect(output).toContain('PASS');
     expect(output).toContain('CLAUDE.md exists');
-    expect(output).toContain('CLAUDE.md has required sections');
+  });
+
+  it('checks CLAUDE.md content depth', () => {
+    setupProject({
+      'CLAUDE.md': '# Project\n## Session\n## Running\n## Key Files\n',
+    });
+    const output = runAudit(TEST_DIR);
+    expect(output).toContain('FAIL');
+    expect(output).toContain('minimal content');
   });
 
   it('detects session logs', () => {
     setupProject({
-      'CLAUDE.md': '# P\n## Session\n## Running\n## Key Files',
+      'CLAUDE.md': '# P\n\nDescription text.\n\n## Session Protocol\n\nRead latest.\n\n## Running\n\nnpm dev\n\n## Key Files\n\n| File | Purpose |\n|------|---------|',
       'docs/sessions/README.md': '# Sessions\n| Date | Status | Summary |\n',
       'docs/sessions/2026-02-21_session.md': '# Session\n',
     });
@@ -64,6 +72,14 @@ describe('audit command', () => {
     expect(output).toContain('PASS');
     expect(output).toContain('Session logs present');
     expect(output).toContain('Session index maintained');
+  });
+
+  it('shows weighted point values', () => {
+    setupProject({});
+    const output = runAudit(TEST_DIR);
+    expect(output).toContain('[15pts]');
+    expect(output).toContain('[10pts]');
+    expect(output).toContain('[5pts]');
   });
 
   it('detects unpinned npm dependencies', () => {
@@ -108,9 +124,9 @@ describe('audit command', () => {
     expect(output).toContain('node_modules');
   });
 
-  it('scores a well-structured project high', () => {
+  it('scores a well-structured project at 100', () => {
     setupProject({
-      'CLAUDE.md': '# P\n## Session Protocol\n## Running\n## Key Files',
+      'CLAUDE.md': '# Project\n\nA well-documented project with real content that spans multiple lines.\nThis project handles user authentication and data processing.\n\n## Session Protocol\n\nAlways read the latest session log in docs/sessions/ before starting work.\nWrite a session log before ending every session.\n\n## Running\n\n```bash\nnpm run dev\nnpm test\n```\n\n## Key Files\n\n| File | Purpose |\n|------|---------||\n| src/index.ts | Entry point |\n| src/auth.ts | Authentication |\n\n## Domain Rules\n\nNever hardcode API keys.\nAlways validate user input.\n',
       'README.md': '# Project\n',
       '.gitignore': 'node_modules\n.env\n.DS_Store\n',
       '.env.example': 'KEY=value\n',
@@ -123,6 +139,15 @@ describe('audit command', () => {
     });
     const output = runAudit(TEST_DIR);
     expect(output).toContain('100/100');
+  });
+
+  it('generates badge with --badge flag', () => {
+    setupProject({
+      'README.md': '# Test\n',
+    });
+    const output = runAudit(TEST_DIR, '--badge');
+    expect(output).toContain('img.shields.io');
+    expect(output).toContain('maestro');
   });
 
   it('offers --fix for fixable issues', () => {
@@ -144,5 +169,13 @@ describe('audit command', () => {
     }
     expect(existsSync(join(TEST_DIR, 'CLAUDE.md'))).toBe(true);
     expect(existsSync(join(TEST_DIR, 'docs', 'sessions', 'README.md'))).toBe(true);
+  });
+
+  it('suggests maestro scan in output', () => {
+    setupProject({
+      'package.json': '{}',
+    });
+    const output = runAudit(TEST_DIR);
+    expect(output).toContain('maestro scan');
   });
 });

@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { initCommand } from '../src/commands/init.js';
-import { auditCommand } from '../src/commands/audit.js';
+import { scanCommand } from '../src/commands/scan.js';
+import { auditCommand, auditAllCommand } from '../src/commands/audit.js';
 import { sessionCommand } from '../src/commands/session.js';
 import { voiceCommand } from '../src/commands/voice.js';
 import { designSystemCommand } from '../src/commands/design-system.js';
@@ -12,8 +13,10 @@ program
   .description('AI-native project scaffolding. Generates instruction files, session logs, brand voice docs, design systems, and security checklists.')
   .version('0.1.0');
 
+program.addCommand(scanCommand);
 program.addCommand(initCommand);
 program.addCommand(auditCommand);
+program.addCommand(auditAllCommand);
 program.addCommand(sessionCommand);
 program.addCommand(voiceCommand);
 program.addCommand(designSystemCommand);

@@ -15,102 +15,196 @@ npm install -g maestro-dev
 Or run without installing:
 
 ```bash
-npx maestro-dev init
+npx maestro-dev scan
 ```
 
-## Commands
+## Quick Start
 
-### `maestro init`
+Already have a project? Scan it:
 
-Scaffold a new AI-native project with interactive prompts.
+```bash
+cd your-project
+maestro scan
+```
+
+Maestro reads your codebase and generates a populated `CLAUDE.md`, session log structure, security checklist, and `.env.example` based on what you've actually built. No empty templates.
+
+Starting fresh? Scaffold from scratch:
 
 ```bash
 maestro init
 ```
 
-Generates a complete project structure:
-- `CLAUDE.md` -- AI session instruction file (customized by project type)
-- `docs/sessions/` -- Session log directory with first log and index
-- `docs/ARCHITECTURE.md` -- System architecture template
-- `docs/SECURITY_CHECKLIST.md` -- Security checklist (varies by project type)
-- `.env.example` -- Environment variable template (varies by services)
-- `.gitignore` -- Comprehensive ignore file (varies by stack)
-- `README.md` -- Project readme with setup instructions
-
-Supports 7 project types: Python API, Node API, Next.js, Static frontend, React Native, Data Pipeline, CLI Tool.
-
-### `maestro audit`
-
-Score an existing project against the AI-native development methodology.
+Either way, check your score:
 
 ```bash
 maestro audit
 ```
 
-Checks 12 criteria including CLAUDE.md quality, session log presence, dependency pinning, secret scanning, and security documentation. Outputs a score out of 100 with actionable recommendations.
+## Commands
+
+### `maestro scan`
+
+**The primary command.** Reads an existing codebase and generates populated docs from what's actually there.
+
+```bash
+maestro scan
+```
+
+Detects your stack, maps key files, extracts run commands, identifies your AI provider and database, and generates:
+
+- `CLAUDE.md` -- populated with real file paths, real run commands, and real project context
+- `docs/sessions/` -- session log directory with first log and index
+- `docs/SECURITY_CHECKLIST.md` -- security checklist matched to your project type
+- `.env.example` -- generated from your existing `.env` with values redacted
+
+```
+  maestro scan
+
+  Scanning floatless...
+
+  Stack: node (api-node)
+  Key files: 14 detected
+  Run commands: 3 found
+  AI provider: none
+  Database: postgres
+  Deploy target: local
+  Dependencies: 22
+
+  + CLAUDE.md (populated from codebase scan)
+  + docs/sessions/README.md
+  + docs/sessions/2026-02-21_session.md
+  + docs/SECURITY_CHECKLIST.md
+  + .env.example (generated from .env, values redacted)
+
+  Scan complete.
+```
+
+### `maestro audit`
+
+Score your project against 12 weighted checks. Get a score out of 100 with actionable recommendations.
+
+```bash
+maestro audit
+```
 
 ```
   Score: 92/100
 
-  PASS  CLAUDE.md exists
-  PASS  CLAUDE.md has required sections
-  PASS  Session logs present - 24 log(s)
-  PASS  Session index maintained
-  PASS  .env safety
-  PASS  .gitignore comprehensive
-  PASS  Dependency pinning
-  PASS  README exists
-  PASS  Architecture documented
-  FAIL  Security checklist present - No security checklist found.
-  PASS  No tracked secrets
-  PASS  Tests present
+  PASS  CLAUDE.md exists [15pts]
+  PASS  CLAUDE.md has content [10pts]
+  PASS  Session logs present [10pts] - 24 log(s)
+  PASS  Session index maintained [5pts]
+  PASS  .env safety [10pts]
+  PASS  .gitignore comprehensive [5pts]
+  PASS  Dependency pinning [10pts]
+  PASS  README exists [5pts]
+  PASS  Architecture documented [10pts]
+  FAIL  Security checklist present [10pts] - No security checklist found.
+  PASS  No tracked secrets [5pts]
+  PASS  Tests present [5pts]
 ```
 
-Auto-fix gaps where possible:
+Auto-fix gaps:
 
 ```bash
 maestro audit --fix
 ```
 
-### `maestro session start`
+Generate a badge for your README:
 
-Create a new dated session log from template.
+```bash
+maestro audit --badge
+# Output: ![Maestro Score](https://img.shields.io/badge/maestro-92%2F100-brightgreen)
+```
+
+Use in CI with a minimum threshold:
+
+```bash
+maestro audit --ci 60
+# Exits non-zero if score < 60
+```
+
+### `maestro audit-all`
+
+Score every repo in a directory at once.
+
+```bash
+maestro audit-all ~/projects
+```
+
+```
+  Repository         Score
+  ------------------  -----
+  synestrology        92/100
+  portfolio           85/100
+  absurdity-index     78/100
+  prompt2story        42/100
+  floatless           33/100
+  enlighten           25/100
+
+  Average             59/100
+
+  6 repos scanned.
+```
+
+### `maestro init`
+
+Interactive scaffolding for new projects. Supports 7 project types: Python API, Node API, Next.js, Static frontend, React Native, Data Pipeline, CLI Tool.
+
+```bash
+maestro init
+```
+
+### `maestro session start` / `maestro session end`
+
+Session log lifecycle. `start` creates a new dated log. `end` auto-detects git changes, populates the "Files Modified" section, prompts for a summary, and updates the session index.
 
 ```bash
 maestro session start
+# ... do your work ...
+maestro session end
 ```
 
 Handles multiple sessions per day automatically (`_session_2.md`, `_session_3.md`).
 
-### `maestro session end`
-
-Close the current session with a summary and status.
-
-```bash
-maestro session end
-```
-
-Updates the session index in `docs/sessions/README.md`.
-
 ### `maestro voice`
 
-Generate a brand voice document interactively.
+Interactive brand voice document generator. Walks through audience, tone, banned phrases, formatting rules, and intellectual frameworks.
 
 ```bash
 maestro voice
 ```
 
-Walks through audience, tone, banned phrases, formatting rules, and intellectual frameworks. Produces `docs/BRAND_VOICE.md`.
-
 ### `maestro design-system`
 
-Generate a design system document interactively.
+Interactive design system generator. Colors, typography, design principles. Outputs CSS custom properties ready to paste into code.
 
 ```bash
 maestro design-system
 ```
 
-Walks through colors, typography, and design principles. Produces `docs/DESIGN_SYSTEM.md` with CSS custom properties ready to paste into code.
+## CI Integration
+
+Add Maestro to your CI pipeline to enforce project health standards:
+
+```yaml
+# .github/workflows/maestro-audit.yml
+name: Maestro Audit
+on: [push, pull_request]
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - run: npm install -g maestro-dev
+      - run: maestro audit --ci 60
+```
+
+See [examples/github-action.yml](examples/github-action.yml) for a full example.
 
 ## Why this exists
 
@@ -138,7 +232,7 @@ This tool packages a development methodology built across 535+ co-authored commi
 4. **Verification over trust** -- test outputs, don't assume correctness
 5. **Security and dependencies as ongoing maintenance**, not afterthoughts
 
-You can read more about the approach in [All the Notes, None of the Music](https://shainapauley.com/writing/all-the-notes-none-of-the-music) and [232 Days of Cowboy Coding](https://shainapauley.com/writing/232-days-of-cowboy-coding).
+Read more: [All the Notes, None of the Music](https://shainapauley.com/writing/all-the-notes-none-of-the-music) | [232 Days of Cowboy Coding](https://shainapauley.com/writing/232-days-of-cowboy-coding)
 
 ## License
 

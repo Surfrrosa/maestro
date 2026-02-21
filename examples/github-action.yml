@@ -1,0 +1,28 @@
+# Example GitHub Action: Run maestro audit on every push
+# Add this to .github/workflows/maestro-audit.yml in your project
+
+name: Maestro Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Maestro
+        run: npm install -g maestro-dev
+
+      - name: Run Maestro Audit
+        run: maestro audit --ci 60
+        # Fails the build if score drops below 60/100
+        # Adjust the threshold to match your standards

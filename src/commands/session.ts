@@ -2,10 +2,62 @@ import { Command } from 'commander';
 import { input, select } from '@inquirer/prompts';
 import chalk from 'chalk';
 import { join } from 'node:path';
-import { readdirSync } from 'node:fs';
+import { readdirSync, existsSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { writeFile, readFile, fileExists, ensureDir, today } from '../utils/fs.js';
 import { generateSessionLog } from '../templates/session-log.js';
 import { generateSessionIndex, appendSessionEntry } from '../templates/session-index.js';
+
+function getGitChanges(cwd: string): string[] {
+  try {
+    // Check if we're in a git repo
+    if (!existsSync(join(cwd, '.git'))) return [];
+
+    const output = execSync('git diff --stat HEAD 2>/dev/null || git diff --stat 2>/dev/null || echo ""', {
+      cwd,
+      encoding: 'utf-8',
+      timeout: 5000,
+    }).trim();
+
+    if (!output) {
+      // Try unstaged + staged changes
+      const allChanges = execSync('git status --porcelain 2>/dev/null || echo ""', {
+        cwd,
+        encoding: 'utf-8',
+        timeout: 5000,
+      }).trim();
+
+      if (!allChanges) return [];
+
+      return allChanges
+        .split('\n')
+        .filter(line => line.trim())
+        .map(line => {
+          const status = line.substring(0, 2).trim();
+          const file = line.substring(3).trim();
+          const statusMap: Record<string, string> = {
+            'M': 'modified',
+            'A': 'added',
+            'D': 'deleted',
+            'R': 'renamed',
+            '??': 'new',
+          };
+          return `- ${file} (${statusMap[status] || 'changed'})`;
+        });
+    }
+
+    // Parse git diff --stat output
+    return output
+      .split('\n')
+      .filter(line => line.includes('|'))
+      .map(line => {
+        const file = line.split('|')[0].trim();
+        return `- ${file}`;
+      });
+  } catch {
+    return [];
+  }
+}
 
 const sessionCommand = new Command('session')
   .description('Manage development session logs');
@@ -75,6 +127,12 @@ sessionCommand
     console.log(chalk.bold('\n  maestro session end\n'));
     console.log(chalk.dim(`  Closing: docs/sessions/${latestFile}\n`));
 
+    // Detect git changes and auto-populate Files Modified
+    const gitChanges = getGitChanges(cwd);
+    if (gitChanges.length > 0) {
+      console.log(chalk.dim(`  Detected ${gitChanges.length} changed file(s) from git.\n`));
+    }
+
     const summary = await input({
       message: 'Session summary (one line for the index):',
     });
@@ -88,9 +146,19 @@ sessionCommand
       ],
     });
 
-    // Update session file status
+    // Update session file
     let content = readFile(latestPath);
     content = content.replace('## Status: In Progress', `## Status: ${status}`);
+
+    // Auto-populate Files Modified from git
+    if (gitChanges.length > 0) {
+      const filesSection = gitChanges.join('\n');
+      content = content.replace(
+        '## Files Modified\n-',
+        `## Files Modified\n${filesSection}`
+      );
+    }
+
     writeFile(latestPath, content);
 
     // Update session index
@@ -102,6 +170,9 @@ sessionCommand
     }
 
     console.log(chalk.green(`\n  Session closed: ${status}`));
+    if (gitChanges.length > 0) {
+      console.log(chalk.dim(`  ${gitChanges.length} file(s) auto-added to Files Modified section.`));
+    }
     console.log(chalk.dim(`  Summary added to docs/sessions/README.md\n`));
   });
 

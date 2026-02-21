@@ -76,7 +76,7 @@ describe('Session log template', () => {
     expect(result).toContain('## Status: In Progress');
     expect(result).toContain('## Objectives');
     expect(result).toContain('## Accomplished');
-    expect(result).toContain('## Decisions Made');
+    expect(result).toContain('## Key Decisions');
     expect(result).toContain('## Next Session');
   });
 });

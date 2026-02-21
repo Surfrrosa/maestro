@@ -9,7 +9,8 @@ export function generateSessionLog(date: string): string {
 ## Accomplished
 -
 
-## Decisions Made
+## Key Decisions
+<!-- Format: Decision | Rationale -->
 -
 
 ## Files Modified
