@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hook": "maestro check --hook",
+        "description": "Verify project context is loaded before AI starts work"
+      }
+    ]
+  }
+}

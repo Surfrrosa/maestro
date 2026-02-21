@@ -65,7 +65,8 @@ const sessionCommand = new Command('session')
 sessionCommand
   .command('start')
   .description('Create a new session log for today')
-  .action(async () => {
+  .option('--quiet', 'Suppress output (for hooks and automation)')
+  .action(async (options: { quiet?: boolean }) => {
     const cwd = process.cwd();
     const sessionsDir = join(cwd, 'docs', 'sessions');
     const date = today();
@@ -77,7 +78,9 @@ sessionCommand
     if (!fileExists(indexPath)) {
       const projectName = cwd.split('/').pop() || 'project';
       writeFile(indexPath, generateSessionIndex(projectName));
-      console.log(chalk.dim(`  Created session index: docs/sessions/README.md`));
+      if (!options.quiet) {
+        console.log(chalk.dim(`  Created session index: docs/sessions/README.md`));
+      }
     }
 
     // Find next available filename
@@ -93,9 +96,11 @@ sessionCommand
 
     writeFile(filepath, generateSessionLog(date));
 
-    console.log(chalk.bold('\n  maestro session start\n'));
-    console.log(chalk.green(`  Created: docs/sessions/${filename}`));
-    console.log(chalk.dim(`\n  Fill in your objectives before starting work.\n`));
+    if (!options.quiet) {
+      console.log(chalk.bold('\n  maestro session start\n'));
+      console.log(chalk.green(`  Created: docs/sessions/${filename}`));
+      console.log(chalk.dim(`\n  Fill in your objectives before starting work.\n`));
+    }
   });
 
 sessionCommand

@@ -148,6 +148,130 @@ maestro audit-all ~/projects
   6 repos scanned.
 ```
 
+### `maestro check`
+
+Pre-session enforcement. Verifies your project context is loaded before AI starts work.
+
+```bash
+maestro check
+```
+
+```
+  PASS  CLAUDE.md exists
+  PASS  Session logs present - Latest: 2026-02-21_session.md
+  WARN  Open issues from last session - 2 issue(s): Auth token expiring...
+  PASS  Project health
+
+  Warnings found. Review before starting work.
+```
+
+Use as a Claude Code hook for automatic enforcement:
+
+```bash
+maestro hooks install
+```
+
+Or use in hook mode for automation:
+
+```bash
+maestro check --hook
+# Exits 0 (pass) or 1 (fail)
+```
+
+### `maestro quality`
+
+Static code quality analysis. Zero external dependencies -- uses regex and heuristics to detect spaghetti code, dead code, and hygiene issues.
+
+```bash
+maestro quality
+```
+
+```
+  Grade: B  (82/100)
+
+  PASS  complexity         92% (3 findings)
+  PASS  dead-code          100%
+  PASS  structure          100%
+  PASS  hygiene            87% (4 findings)
+  PASS  consistency        100%
+  WARN  testing            60% (5 findings)
+  PASS  error-handling     100%
+
+  Top issues:
+
+  WARNING src/commands/scan.ts:45
+          Function 'scanProject' is 62 lines (max 50).
+          Break into smaller functions with single responsibilities.
+```
+
+**7 quality categories:**
+
+| Category | What it checks |
+|----------|---------------|
+| Complexity | File size (>300 lines), function length (>50 lines), nesting depth (>4 levels) |
+| Dead code | Unused files never imported by anything |
+| Structure | Circular dependencies, flat directories with 15+ files |
+| Hygiene | console.log/print in source, TODO/FIXME comments, magic numbers |
+| Consistency | Mixed file naming conventions within directories |
+| Testing | Source files without corresponding test files |
+| Error handling | Empty catch blocks, .then() without .catch(), bare except |
+
+Use in CI:
+
+```bash
+maestro quality --ci B
+# Exits non-zero if grade is below B
+```
+
+### `maestro security`
+
+Active security scanner. Goes beyond the static checklist to scan source code for real vulnerabilities.
+
+```bash
+maestro security
+```
+
+```
+  CRITICAL (1)
+
+  FAIL  Anthropic key found
+     src/config.ts:12
+     Move to .env file and add pattern to .gitignore if needed.
+
+  MEDIUM (2)
+
+  FAIL  DATABASE_URL referenced in code but not in .env.example
+     src/db.ts:3
+     Add DATABASE_URL=your_value_here to .env.example
+```
+
+**Scans for:** hardcoded secrets (15 patterns), env vars not documented in .env.example, unsafe eval/exec usage, Docker exposure issues.
+
+### `maestro deps`
+
+Dependency drift detection. Finds unused, phantom, and problematic dependencies.
+
+```bash
+maestro deps
+```
+
+```
+  Unused Dependencies
+
+  WARN  lodash
+     lodash is declared in package.json but never imported in source code.
+
+  Phantom Dependencies (imported but not declared)
+
+  WARN  express
+     express is imported in source code but not declared as a dependency.
+
+  License Concerns
+
+  FAIL  gpl-package
+     gpl-package uses GPL-3.0. Your project is MIT.
+```
+
 ### `maestro init`
 
 Interactive scaffolding for new projects. Supports 7 project types: Python API, Node API, Next.js, Static frontend, React Native, Data Pipeline, CLI Tool.
@@ -184,13 +308,25 @@ Interactive design system generator. Colors, typography, design principles. Outp
 maestro design-system
 ```
 
+### `maestro hooks install`
+
+Install integration hooks for automatic session management and pre-session checks.
+
+```bash
+maestro hooks install
+```
+
+Installs:
+- **Claude Code hook** (`.claude/hooks.json`) -- runs `maestro check` before AI tool use
+- **Git hook** (`post-checkout`) -- auto-creates session log on branch switch
+
 ## CI Integration
 
-Add Maestro to your CI pipeline to enforce project health standards:
+Add Maestro to your CI pipeline to enforce project health and code quality:
 
 ```yaml
-# .github/workflows/maestro-audit.yml
-name: Maestro Audit
+# .github/workflows/maestro.yml
+name: Maestro
 on: [push, pull_request]
 jobs:
   audit:
@@ -202,6 +338,7 @@ jobs:
           node-version: '18'
       - run: npm install -g maestro-dev
       - run: maestro audit --ci 60
+      - run: maestro quality --ci C
 ```
 
 See [examples/github-action.yml](examples/github-action.yml) for a full example.
