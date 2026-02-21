@@ -247,6 +247,96 @@ maestro security
 
 **Scans for:** hardcoded secrets (15 patterns), env vars not documented in .env.example, unsafe eval/exec usage, Docker exposure issues.
 
+### `maestro review`
+
+Pre-commit code review. Analyzes staged git changes and flags issues before they get committed.
+
+```bash
+maestro review
+```
+
+```
+  Reviewing 4 staged files...
+
+  PASS  No new dependencies added
+  PASS  No env vars introduced without .env.example
+  WARN  Debug statement found in staged changes
+        src/api.ts:42 -- console.log("user data:", data)
+  PASS  No hardcoded secrets
+  PASS  Test files included for new source files
+  PASS  No files over 300 lines
+  WARN  TODO added in staged changes
+        src/auth.ts:18 -- // TODO: add rate limiting
+  PASS  No large files (>500KB)
+
+  2 warning(s). Review before committing.
+```
+
+**8 checks:** new dependencies, env vars, hardcoded secrets, debug statements, test coverage, file size, TODOs, large files.
+
+Use in CI or as a pre-commit hook:
+
+```bash
+maestro review --strict
+# Exits non-zero on warnings too
+```
+
+### `maestro bugs`
+
+Cross-session bug tracking. Parses session logs for Known Issues and cross-references with Accomplished sections to find what's been resolved and what's still open.
+
+```bash
+maestro bugs
+```
+
+```
+  Open Issues (2)
+
+  STALE  Auth token expires after 24h (first seen: 2026-01-15, 5 sessions ago)
+         src: docs/sessions/2026-01-15_session.md
+
+  OPEN   Mobile nav doesn't close on route change (first seen: 2026-02-20)
+         src: docs/sessions/2026-02-20_session.md
+
+  Resolved (1)
+
+  PASS  Fixed login redirect loop on Safari (resolved: 2026-02-19)
+```
+
+Flags stale issues that have gone unresolved for 3+ sessions. Use `--open` for open only, `--stale` for stale only.
+
+### `maestro changelog`
+
+Auto-generate release notes from session logs and git history.
+
+```bash
+maestro changelog --since 2026-02-01
+```
+
+```
+  # Changelog (2026-02-01 to 2026-02-21)
+
+  ## Features
+  - Added user authentication with JWT tokens
+  - Image upload with drag-and-drop support
+
+  ## Fixes
+  - Fixed login redirect loop on Safari
+  - Fixed CSS grid gap in Firefox
+
+  ## Internal
+  - Refactored database queries for performance
+  - Added integration test suite
+
+  Sources: 8 session logs, 24 commits
+```
+
+Write to a file:
+
+```bash
+maestro changelog --since 2026-02-01 --output CHANGELOG.md
+```
+
 ### `maestro deps`
 
 Dependency drift detection. Finds unused, phantom, and problematic dependencies.
@@ -320,6 +410,14 @@ Installs:
 - **Claude Code hook** (`.claude/hooks.json`) -- runs `maestro check` before AI tool use
 - **Git hook** (`post-checkout`) -- auto-creates session log on branch switch
 
+Add a pre-commit quality gate:
+
+```bash
+maestro hooks install --pre-commit
+```
+
+This installs a git pre-commit hook that runs `maestro security --ci` and `maestro review --strict` before each commit.
+
 ## CI Integration
 
 Add Maestro to your CI pipeline to enforce project health and code quality:
@@ -339,6 +437,7 @@ jobs:
       - run: npm install -g maestro-dev
       - run: maestro audit --ci 60
       - run: maestro quality --ci C
+      - run: maestro security --ci
 ```
 
 See [examples/github-action.yml](examples/github-action.yml) for a full example.

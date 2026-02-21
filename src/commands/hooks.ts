@@ -19,6 +19,30 @@ function generateClaudeHookConfig(): string {
   }, null, 2);
 }
 
+function generatePreCommitHook(): string {
+  return `#!/bin/sh
+# Pre-commit quality gate
+# Installed by maestro hooks install --pre-commit
+
+if command -v maestro > /dev/null 2>&1; then
+  echo "Running maestro pre-commit checks..."
+
+  maestro security --ci --severity high 2>/dev/null
+  SECURITY_EXIT=$?
+
+  maestro review --strict 2>/dev/null
+  REVIEW_EXIT=$?
+
+  if [ $SECURITY_EXIT -ne 0 ] || [ $REVIEW_EXIT -ne 0 ]; then
+    echo ""
+    echo "Pre-commit checks failed. Fix issues before committing."
+    echo "Use git commit --no-verify to bypass (not recommended)."
+    exit 1
+  fi
+fi
+`;
+}
+
 function generateGitPostCheckout(): string {
   return `#!/bin/sh
 # Auto-create session log when switching branches
@@ -41,9 +65,10 @@ hooksCommand
   .description('Install pre-session hooks')
   .option('--claude', 'Install Claude Code hook only')
   .option('--git', 'Install git post-checkout hook only')
-  .action(async (options: { claude?: boolean; git?: boolean }) => {
+  .option('--pre-commit', 'Install git pre-commit hook (security + review)')
+  .action(async (options: { claude?: boolean; git?: boolean; preCommit?: boolean }) => {
     const cwd = process.cwd();
-    const installBoth = !options.claude && !options.git;
+    const installBoth = !options.claude && !options.git && !options.preCommit;
 
     console.log(header('maestro hooks install'));
 
@@ -82,6 +107,31 @@ hooksCommand
           writeFile(hookPath, generateGitPostCheckout());
           chmodSync(hookPath, '755');
           console.log(chalk.green(`  + .git/hooks/post-checkout (auto session log on branch switch)`));
+        }
+      }
+    }
+
+    if (options.preCommit) {
+      const gitDir = join(cwd, '.git');
+      if (!existsSync(gitDir)) {
+        console.log(chalk.yellow(`  Not a git repository. Skipping pre-commit hook.\n`));
+      } else {
+        const hookDir = join(gitDir, 'hooks');
+        const hookPath = join(hookDir, 'pre-commit');
+
+        if (fileExists(hookPath)) {
+          const existing = readFile(hookPath);
+          if (existing.includes('maestro')) {
+            console.log(chalk.yellow(`  pre-commit hook already contains maestro. Skipping.`));
+          } else {
+            console.log(chalk.yellow(`  pre-commit hook already exists (not maestro). Skipping.`));
+            console.log(chalk.dim(`  To add manually, see: maestro review --help\n`));
+          }
+        } else {
+          ensureDir(hookDir);
+          writeFile(hookPath, generatePreCommitHook());
+          chmodSync(hookPath, '755');
+          console.log(chalk.green(`  + .git/hooks/pre-commit (security + review on commit)`));
         }
       }
     }

@@ -15,7 +15,7 @@ export interface SecurityFinding {
   suggestion: string;
 }
 
-const SECRET_PATTERNS: Array<{ regex: RegExp; name: string }> = [
+export const SECRET_PATTERNS: Array<{ regex: RegExp; name: string }> = [
   { regex: /(?:api[_-]?key|apikey|secret[_-]?key|access[_-]?token|auth[_-]?token)\s*[:=]\s*['"][a-zA-Z0-9]{16,}/i, name: 'Generic API key' },
   { regex: /sk-[a-zA-Z0-9]{20,}/, name: 'OpenAI key' },
   { regex: /sk-ant-[a-zA-Z0-9\-_]{20,}/, name: 'Anthropic key' },
@@ -36,7 +36,7 @@ async function scanSecrets(cwd: string): Promise<SecurityFinding[]> {
   const findings: SecurityFinding[] = [];
   const files = await glob('**/*.{ts,js,tsx,jsx,py,json,yml,yaml,toml,cfg,ini,env}', {
     cwd,
-    ignore: ['node_modules/**', 'dist/**', '.git/**', '__pycache__/**', '*.lock', 'package-lock.json', '.env.example'],
+    ignore: ['node_modules/**', 'dist/**', '.git/**', '__pycache__/**', '*.lock', 'package-lock.json', '.env.example', '**/*.test.*', '**/*.spec.*'],
     maxDepth: 6,
   });
 
@@ -140,7 +140,7 @@ async function scanUnsafeExec(cwd: string): Promise<SecurityFinding[]> {
 
   const files = await glob('**/*.{ts,js,tsx,jsx,py}', {
     cwd,
-    ignore: ['node_modules/**', 'dist/**', '.git/**', '__pycache__/**', '**/*.test.*', '**/*.spec.*', '**/security.ts'],
+    ignore: ['node_modules/**', 'dist/**', '.git/**', '__pycache__/**', '**/*.test.*', '**/*.spec.*', '**/security.ts', '**/review.ts', '**/changelog.ts'],
     maxDepth: 6,
   });
 
@@ -249,7 +249,8 @@ export const securityCommand = new Command('security')
   .description('Active security scan: find secrets, unsafe patterns, and missing protections')
   .option('--json', 'Output findings as JSON')
   .option('--severity <level>', 'Minimum severity to show: critical, high, medium, low', 'low')
-  .action(async (options: { json?: boolean; severity?: string }) => {
+  .option('--ci', 'Exit non-zero if critical or high severity issues found')
+  .action(async (options: { json?: boolean; severity?: string; ci?: boolean }) => {
     const cwd = process.cwd();
     console.log(header('maestro security'));
     console.log(info('Scanning for security issues...\n'));
@@ -301,6 +302,7 @@ export const securityCommand = new Command('security')
     const high = (grouped['high'] || []).length;
     if (critical > 0 || high > 0) {
       console.log(chalk.red.bold(`\n  ${critical + high} critical/high severity issue(s) require immediate attention.\n`));
+      if (options.ci) process.exit(1);
     } else {
       console.log(chalk.yellow(`\n  ${filtered.length} finding(s). Review and address as appropriate.\n`));
     }

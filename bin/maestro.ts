@@ -10,6 +10,9 @@ import { securityCommand } from '../src/commands/security.js';
 import { depsCommand } from '../src/commands/deps.js';
 import { qualityCommand } from '../src/commands/quality.js';
 import { hooksCommand } from '../src/commands/hooks.js';
+import { bugsCommand } from '../src/commands/bugs.js';
+import { reviewCommand } from '../src/commands/review.js';
+import { changelogCommand } from '../src/commands/changelog.js';
 
 const program = new Command();
 
@@ -30,5 +33,8 @@ program.addCommand(sessionCommand);
 program.addCommand(voiceCommand);
 program.addCommand(designSystemCommand);
 program.addCommand(hooksCommand);
+program.addCommand(bugsCommand);
+program.addCommand(reviewCommand);
+program.addCommand(changelogCommand);
 
 program.parse();
