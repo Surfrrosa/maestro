@@ -135,7 +135,7 @@ export const checkCommand = new Command('check')
 
     if (hasBlocking) {
       console.log(chalk.red.bold('  Session blocked. Fix the failures above before starting work.'));
-      console.log(chalk.dim('  Run maestro init or maestro scan to set up missing files.\n'));
+      console.log(chalk.dim('\n  Next: maestro scan\n'));
     } else if (hasWarnings) {
       console.log(chalk.yellow('  Warnings found. Review before starting work.\n'));
     } else {

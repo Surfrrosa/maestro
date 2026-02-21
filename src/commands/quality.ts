@@ -100,6 +100,10 @@ export const qualityCommand = new Command('quality')
       console.log(chalk.dim(`\n  ${report.fixableCount} auto-fixable issue(s) detected.`));
     }
 
+    if (!options.ci) {
+      console.log(chalk.dim(`\n  Next: maestro security`));
+    }
+
     if (options.ci) {
       const gradeOrder = ['F', 'D', 'C', 'B', 'A'];
       const threshold = gradeOrder.indexOf(options.ci.toUpperCase());

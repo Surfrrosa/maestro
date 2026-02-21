@@ -29,3 +29,7 @@ export function score(value: number, total: number): string {
 export function divider(): string {
   return chalk.dim('  ' + '-'.repeat(50));
 }
+
+export function hint(text: string): string {
+  return chalk.dim(`\n  Next: ${text}\n`);
+}

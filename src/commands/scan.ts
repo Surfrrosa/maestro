@@ -460,10 +460,6 @@ export const scanCommand = new Command('scan')
       console.log(`  ${chalk.green('+')} .env.example (generated from .env, values redacted)`);
     }
 
-    console.log(chalk.bold.green(`\n  Scan complete.\n`));
-    console.log(chalk.dim('  Next steps:'));
-    console.log(chalk.dim('  1. Review CLAUDE.md and add your domain-specific rules'));
-    console.log(chalk.dim('  2. Run maestro audit to check overall project health'));
-    console.log(chalk.dim('  3. Run maestro session start to begin tracking sessions'));
-    console.log('');
+    console.log(chalk.bold.green(`\n  Scan complete.`));
+    console.log(chalk.dim(`\n  Next: maestro audit\n`));
   });

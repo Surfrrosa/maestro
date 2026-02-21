@@ -136,7 +136,7 @@ hooksCommand
       }
     }
 
-    console.log(chalk.dim(`\n  Hooks installed. maestro check will run before AI tool use.\n`));
+    console.log(chalk.dim(`\n  Next: maestro check\n`));
   });
 
 export { hooksCommand };

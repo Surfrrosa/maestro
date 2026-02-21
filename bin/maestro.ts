@@ -18,8 +18,16 @@ const program = new Command();
 
 program
   .name('maestro')
-  .description('AI-native project scaffolding. Generates instruction files, session logs, brand voice docs, design systems, and security checklists.')
+  .description('AI-native project scaffolding and development lifecycle CLI.')
   .version('0.2.0');
+
+program.addHelpText('after', `
+  Setup:     scan, init, hooks install
+  Workflow:  session, check, review
+  Health:    audit, quality, security, deps
+  Insights:  bugs, changelog, audit-all
+  Brand:     voice, design-system
+`);
 
 program.addCommand(scanCommand);
 program.addCommand(initCommand);

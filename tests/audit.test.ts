@@ -171,11 +171,11 @@ describe('audit command', () => {
     expect(existsSync(join(TEST_DIR, 'docs', 'sessions', 'README.md'))).toBe(true);
   });
 
-  it('suggests maestro scan in output', () => {
+  it('suggests next step in output', () => {
     setupProject({
       'package.json': '{}',
     });
     const output = runAudit(TEST_DIR);
-    expect(output).toContain('maestro scan');
+    expect(output).toContain('Next:');
   });
 });

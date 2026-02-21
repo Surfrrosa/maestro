@@ -330,6 +330,6 @@ export const reviewCommand = new Command('review')
       console.log(chalk.yellow(`  ${warns} warning(s). Review before committing.\n`));
       if (options.strict) process.exit(1);
     } else {
-      console.log(chalk.green.bold('  All checks passed.\n'));
+      console.log(chalk.green.bold('  All checks passed. Ready to commit.\n'));
     }
   });

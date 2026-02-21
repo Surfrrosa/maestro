@@ -267,7 +267,9 @@ export const securityCommand = new Command('security')
     }
 
     if (filtered.length === 0) {
-      console.log(`  ${PASS}  No security issues found.\n`);
+      console.log(`  ${PASS}  No security issues found.`);
+      console.log(chalk.dim(`\n  Not a replacement for a security audit. Catches common patterns only.`));
+      if (!options.ci) console.log(chalk.dim(`\n  Next: maestro review\n`));
       return;
     }
 
@@ -301,9 +303,10 @@ export const securityCommand = new Command('security')
     const critical = (grouped['critical'] || []).length;
     const high = (grouped['high'] || []).length;
     if (critical > 0 || high > 0) {
-      console.log(chalk.red.bold(`\n  ${critical + high} critical/high severity issue(s) require immediate attention.\n`));
-      if (options.ci) process.exit(1);
+      console.log(chalk.red.bold(`\n  ${critical + high} critical/high severity issue(s) require immediate attention.`));
     } else {
-      console.log(chalk.yellow(`\n  ${filtered.length} finding(s). Review and address as appropriate.\n`));
+      console.log(chalk.yellow(`\n  ${filtered.length} finding(s). Review and address as appropriate.`));
     }
+    console.log(chalk.dim(`  Not a replacement for a security audit. Catches common patterns only.\n`));
+    if (options.ci && (critical > 0 || high > 0)) process.exit(1);
   });

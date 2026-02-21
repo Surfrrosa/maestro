@@ -422,16 +422,19 @@ export const auditCommand = new Command('audit')
       if (fixable.length > 0) {
         console.log(chalk.bold('\n  Applying fixes...\n'));
         applyFixes(cwd, checks);
-        console.log(chalk.dim('\n  Re-run maestro audit to verify fixes.\n'));
+        console.log(chalk.dim('\n  Next: maestro audit\n'));
       } else {
         console.log(chalk.dim('\n  No auto-fixable issues found.\n'));
       }
     } else {
       const fixable = checks.filter(c => !c.passed && c.fixable);
       if (fixable.length > 0) {
-        console.log(chalk.dim(`\n  Run ${chalk.white('maestro audit --fix')} to auto-fix ${fixable.length} issue(s).`));
+        console.log(chalk.dim(`\n  Next: maestro audit --fix\n`));
+      } else if (score === 100) {
+        console.log(chalk.dim(`\n  Next: maestro quality\n`));
+      } else {
+        console.log(chalk.dim(`\n  Next: maestro quality\n`));
       }
-      console.log(chalk.dim(`  Run ${chalk.white('maestro scan')} to generate populated docs from your codebase.\n`));
     }
 
     // CI mode: exit with error if below threshold
