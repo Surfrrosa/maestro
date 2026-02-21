@@ -1,0 +1,51 @@
+{
+  "name": "maestro-dev",
+  "version": "0.1.0",
+  "description": "AI-native project scaffolding CLI. Generates instruction files, session logs, brand voice docs, design systems, and security checklists for coherent AI-assisted development.",
+  "type": "module",
+  "bin": {
+    "maestro": "./dist/bin/maestro.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "ai",
+    "cli",
+    "scaffolding",
+    "developer-tools",
+    "claude",
+    "ai-native",
+    "project-setup",
+    "code-quality"
+  ],
+  "author": "Shaina Pauley <shainapauley@gmail.com> (https://shainapauley.com)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Surfrrosa/maestro"
+  },
+  "homepage": "https://github.com/Surfrrosa/maestro#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@inquirer/prompts": "^7.0.0",
+    "chalk": "^5.3.0",
+    "commander": "^13.0.0",
+    "glob": "^11.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
