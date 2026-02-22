@@ -19,7 +19,7 @@ const program = new Command();
 program
   .name('maestro')
   .description('AI-native project scaffolding and development lifecycle CLI.')
-  .version('0.2.0');
+  .version('0.3.0');
 
 program.addHelpText('after', `
   Setup:     scan, init, hooks install
