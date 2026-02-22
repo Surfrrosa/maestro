@@ -4,7 +4,7 @@ AI-native development fails without process. Not because the tools are bad, but 
 
 Maestro is a CLI that scaffolds the process. It generates the instruction files, session logs, brand voice documents, design systems, and security checklists that keep AI-assisted development coherent across sessions, repos, and teams.
 
-Built by [@shainapauley](https://shainapauley.com), who shipped 10 products across 14 repositories using this methodology over 232 days of AI-native development. [Read more about the approach.](https://shainapauley.com/writing/all-the-notes-none-of-the-music)
+Built by [@shainapauley](https://shainapauley.com).
 
 ![Maestro CLI](docs/screenshot.png)
 
