@@ -6,6 +6,8 @@ Maestro is a CLI that scaffolds the process. It generates the instruction files,
 
 Built by [@shainapauley](https://shainapauley.com), who shipped 10 products across 14 repositories using this methodology over 232 days of AI-native development. [Read more about the approach.](https://shainapauley.com/writing/all-the-notes-none-of-the-music)
 
+![Maestro CLI](docs/screenshot.png)
+
 ## Install
 
 ```bash
@@ -76,6 +78,7 @@ Starting fresh? Use `maestro init` instead of `scan`.
 
 | Command | What it does |
 |---------|-------------|
+| `maestro report` | **Full health report: audit + quality + security + deps in one pass** |
 | `maestro audit` | Score project against 12 checks (0-100) |
 | `maestro quality` | Code quality grade (A-F, 7 categories) |
 | `maestro security` | Scan for secrets and vulnerabilities |
@@ -99,6 +102,35 @@ Starting fresh? Use `maestro init` instead of `scan`.
 ---
 
 ## Command Details
+
+### `maestro report`
+
+Full health report. Runs audit, quality, security, and deps analysis in parallel and produces a unified score.
+
+```
+  ~ maestro report
+
+  Project: my-project
+
+  Score  78/100  [████████████████────]
+
+  Grade  C  (78/100)
+
+  ────────────────────────────────────────────
+
+  Audit            82/100   10 of 12 checks passed
+  Quality          91/100   Grade A   3 finding(s)
+  Security         65/100   1 critical, 2 medium
+  Dependencies     80/100   2 unused, 1 phantom
+```
+
+Composite score weights: Quality 35%, Security 30%, Audit 20%, Deps 15%. Critical and high severity items surface in an Attention Required section.
+
+```bash
+maestro report --json        # Machine-readable output
+maestro report --clipboard   # Copy for Claude Code
+maestro report --ci 70       # Fail CI if score < 70
+```
 
 ### `maestro scan`
 
@@ -125,7 +157,7 @@ Detects your stack, maps key files, extracts run commands, identifies your AI pr
 
   Scan complete.
 
-  Next: maestro audit
+  Next: maestro report
 ```
 
 ### `maestro audit`
