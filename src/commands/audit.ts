@@ -3,8 +3,8 @@ import chalk from 'chalk';
 import { join, basename } from 'node:path';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { glob } from 'glob';
-import { PASS, FAIL, header, info } from '../utils/format.js';
-import { fileExists, readFile, writeFile, ensureDir, detectStack, today } from '../utils/fs.js';
+import { PASS, FAIL, header, info, scoreBar, section, SYM, palette, hint, successBanner, divider } from '../utils/format.js';
+import { fileExists, readFile, writeFile, ensureDir, detectStack, today, copyToClipboard } from '../utils/fs.js';
 import { generateClaudeMd } from '../templates/claude-md.js';
 import { generateSessionIndex } from '../templates/session-index.js';
 import { generateSessionLog } from '../templates/session-log.js';
@@ -314,7 +314,7 @@ function applyFixes(cwd: string, checks: AuditCheck[]): void {
             aiProvider: 'none',
             database: 'none',
           }));
-          console.log(`  ${chalk.green('+')} Generated CLAUDE.md (run maestro scan for a populated version)`);
+          console.log(`  ${SYM.plus} Generated CLAUDE.md (run maestro scan for a populated version)`);
         }
         break;
       }
@@ -322,13 +322,13 @@ function applyFixes(cwd: string, checks: AuditCheck[]): void {
         const date = today();
         ensureDir(join(cwd, 'docs', 'sessions'));
         writeFile(join(cwd, 'docs', 'sessions', `${date}_session.md`), generateSessionLog(date));
-        console.log(`  ${chalk.green('+')} Created docs/sessions/${date}_session.md`);
+        console.log(`  ${SYM.plus} Created docs/sessions/${date}_session.md`);
         break;
       }
       case 'Session index maintained':
         ensureDir(join(cwd, 'docs', 'sessions'));
         writeFile(join(cwd, 'docs', 'sessions', 'README.md'), generateSessionIndex(projectName));
-        console.log(`  ${chalk.green('+')} Created docs/sessions/README.md`);
+        console.log(`  ${SYM.plus} Created docs/sessions/README.md`);
         break;
       case '.env safety': {
         if (fileExists(join(cwd, '.env')) && !fileExists(join(cwd, '.env.example'))) {
@@ -343,7 +343,7 @@ function applyFixes(cwd: string, checks: AuditCheck[]): void {
             })
             .join('\n');
           writeFile(join(cwd, '.env.example'), sanitized);
-          console.log(`  ${chalk.green('+')} Generated .env.example from .env (values replaced with placeholders)`);
+          console.log(`  ${SYM.plus} Generated .env.example from .env (values replaced with placeholders)`);
         }
         break;
       }
@@ -382,9 +382,10 @@ export function generateBadge(score: number): string {
 export const auditCommand = new Command('audit')
   .description('Audit a project against AI-native development methodology')
   .option('--fix', 'Auto-fix gaps where possible')
+  .option('--clipboard', 'Copy findings to clipboard for Claude Code')
   .option('--ci <threshold>', 'Exit non-zero if score is below threshold (for CI pipelines)', parseInt)
   .option('--badge', 'Output a shields.io badge for your README')
-  .action(async (options: { fix?: boolean; ci?: number; badge?: boolean }) => {
+  .action(async (options: { fix?: boolean; clipboard?: boolean; ci?: number; badge?: boolean }) => {
     const cwd = process.cwd();
     const projectName = basename(cwd);
     const { checks, score } = await runAuditChecks(cwd);
@@ -394,11 +395,9 @@ export const auditCommand = new Command('audit')
       return;
     }
 
-    const scoreColor = score >= 80 ? chalk.green : score >= 60 ? chalk.yellow : score >= 40 ? chalk.hex('#FFA500') : chalk.red;
-
     console.log(header('maestro audit'));
     console.log(info(`Project: ${projectName}`));
-    console.log(`\n  Score: ${scoreColor.bold(`${score}/100`)}\n`);
+    console.log(`\n${scoreBar(score)}\n`);
 
     for (const check of checks) {
       const icon = check.passed ? PASS : FAIL;
@@ -409,31 +408,43 @@ export const auditCommand = new Command('audit')
 
     const failed = checks.filter(c => !c.passed);
     if (failed.length > 0) {
-      console.log(chalk.bold('\n  Recommendations:\n'));
+      console.log(section('Recommendations'));
       for (const check of failed) {
         if (check.detail) {
-          console.log(`  ${chalk.yellow('-')} ${check.detail}`);
+          console.log(`  ${SYM.arrow} ${check.detail}`);
         }
+      }
+    }
+
+    if (options.clipboard && failed.length > 0) {
+      const clipText = [
+        `Maestro Audit - ${projectName} (${score}/100)`,
+        '',
+        'Fix these issues:',
+        ...failed.filter(c => c.detail).map(c => `- ${c.name}: ${c.detail}`),
+      ].join('\n');
+      if (copyToClipboard(clipText)) {
+        console.log(successBanner('Findings copied to clipboard. Paste into Claude Code to fix.'));
       }
     }
 
     if (options.fix) {
       const fixable = checks.filter(c => !c.passed && c.fixable);
       if (fixable.length > 0) {
-        console.log(chalk.bold('\n  Applying fixes...\n'));
+        console.log(section('Applying fixes'));
         applyFixes(cwd, checks);
-        console.log(chalk.dim('\n  Next: maestro audit\n'));
+        console.log(hint('maestro audit'));
       } else {
         console.log(chalk.dim('\n  No auto-fixable issues found.\n'));
       }
-    } else {
+    } else if (!options.clipboard) {
       const fixable = checks.filter(c => !c.passed && c.fixable);
       if (fixable.length > 0) {
-        console.log(chalk.dim(`\n  Next: maestro audit --fix\n`));
-      } else if (score === 100) {
-        console.log(chalk.dim(`\n  Next: maestro quality\n`));
+        console.log(hint('maestro audit --fix'));
+      } else if (failed.length > 0) {
+        console.log(hint('maestro audit --clipboard to copy for Claude Code'));
       } else {
-        console.log(chalk.dim(`\n  Next: maestro quality\n`));
+        console.log(hint('maestro quality'));
       }
     }
 
@@ -504,7 +515,7 @@ export const auditAllCommand = new Command('audit-all')
     console.log(chalk.dim(divider_line));
 
     for (const r of results) {
-      const scoreColor = r.score >= 80 ? chalk.green : r.score >= 60 ? chalk.yellow : r.score >= 40 ? chalk.hex('#FFA500') : chalk.red;
+      const scoreColor = r.score >= 80 ? chalk.hex(palette.PASS_C) : r.score >= 60 ? chalk.hex(palette.WARN_C) : r.score >= 40 ? chalk.hex(palette.SCORE_D) : chalk.hex(palette.FAIL_C);
       const scoreStr = r.score >= 0 ? scoreColor.bold(`${r.score}/100`) : chalk.dim('error');
       console.log(`  ${r.name.padEnd(maxNameLen)}  ${scoreStr}`);
     }

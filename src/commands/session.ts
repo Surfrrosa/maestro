@@ -97,8 +97,9 @@ sessionCommand
     writeFile(filepath, generateSessionLog(date));
 
     if (!options.quiet) {
-      console.log(chalk.bold('\n  maestro session start\n'));
-      console.log(chalk.green(`  Created: docs/sessions/${filename}`));
+      const { commandHeader, SYM: sym, palette: pal, hint: fmtHint } = await import('../utils/format.js');
+      console.log(commandHeader('session start'));
+      console.log(`  ${sym.plus} docs/sessions/${filename}`);
       console.log(chalk.dim(`\n  Fill in your objectives before starting work.\n`));
     }
   });
@@ -129,7 +130,8 @@ sessionCommand
     const latestFile = files[0];
     const latestPath = join(sessionsDir, latestFile);
 
-    console.log(chalk.bold('\n  maestro session end\n'));
+    const { commandHeader: cmdHdr } = await import('../utils/format.js');
+    console.log(cmdHdr('session end'));
     console.log(chalk.dim(`  Closing: docs/sessions/${latestFile}\n`));
 
     // Detect git changes and auto-populate Files Modified

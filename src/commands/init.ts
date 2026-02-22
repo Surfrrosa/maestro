@@ -18,7 +18,8 @@ export const initCommand = new Command('init')
   .action(async (directory?: string) => {
     const cwd = directory ? join(process.cwd(), directory) : process.cwd();
 
-    console.log(chalk.bold('\n  maestro init\n'));
+    const { commandHeader, SYM: sym, successBanner: sb, hint: fmtHint } = await import('../utils/format.js');
+    console.log(commandHeader('init'));
     console.log(chalk.dim('  Setting up an AI-native project.\n'));
 
     if (fileExists(join(cwd, 'CLAUDE.md'))) {
@@ -151,19 +152,9 @@ export const initCommand = new Command('init')
     for (const file of files) {
       writeFile(file.path, file.content);
       const relative = file.path.replace(cwd, '').replace(/^\//, '');
-      console.log(`  ${chalk.green('+')} ${relative}`);
+      console.log(`  ${sym.plus} ${relative}`);
     }
 
-    console.log(chalk.bold.green(`\n  Project scaffolded.\n`));
-    console.log(chalk.dim('  Next steps:'));
-    console.log(chalk.dim(`  1. Review CLAUDE.md and add domain-specific rules`));
-    console.log(chalk.dim(`  2. Copy .env.example to .env and fill in values`));
-    console.log(chalk.dim(`  3. Read your first session log: docs/sessions/${date}_session.md`));
-    if (includeBrandVoice) {
-      console.log(chalk.dim(`  4. Run maestro voice to generate your brand voice doc`));
-    }
-    if (includeDesignSystem) {
-      console.log(chalk.dim(`  ${includeBrandVoice ? '5' : '4'}. Run maestro design-system to generate your design system`));
-    }
-    console.log('');
+    console.log(sb('Project scaffolded.'));
+    console.log(fmtHint('maestro audit'));
   });

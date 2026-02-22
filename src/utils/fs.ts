@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 
 export function fileExists(path: string): boolean {
@@ -20,6 +21,18 @@ export function writeFile(path: string, content: string): void {
 export function ensureDir(path: string): void {
   if (!existsSync(path)) {
     mkdirSync(path, { recursive: true });
+  }
+}
+
+export function copyToClipboard(text: string): boolean {
+  try {
+    const cmd = process.platform === 'darwin' ? 'pbcopy'
+      : process.platform === 'win32' ? 'clip'
+      : 'xclip -selection clipboard';
+    execSync(cmd, { input: text, timeout: 3000 });
+    return true;
+  } catch {
+    return false;
   }
 }
 

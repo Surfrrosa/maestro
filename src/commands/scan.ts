@@ -372,8 +372,9 @@ export const scanCommand = new Command('scan')
     const cwd = process.cwd();
     const projectName = basename(cwd);
 
-    console.log(chalk.bold('\n  maestro scan\n'));
-    console.log(chalk.dim(`  Scanning ${projectName}...\n`));
+    const { commandHeader, info: fmtInfo, SYM: symbols, successBanner: sb, hint: fmtHint, palette: pal } = await import('../utils/format.js');
+    console.log(commandHeader('scan'));
+    console.log(fmtInfo(`Scanning ${projectName}...\n`));
 
     const stack = detectStack(cwd);
     const projectType = inferProjectType(cwd);
@@ -394,13 +395,14 @@ export const scanCommand = new Command('scan')
     };
 
     // Report what was found
-    console.log(`  ${chalk.green('Stack:')} ${stack} (${projectType})`);
-    console.log(`  ${chalk.green('Key files:')} ${scan.keyFiles.length} detected`);
-    console.log(`  ${chalk.green('Run commands:')} ${scan.runCommands.length} found`);
-    console.log(`  ${chalk.green('AI provider:')} ${scan.aiProvider}`);
-    console.log(`  ${chalk.green('Database:')} ${scan.database}`);
-    console.log(`  ${chalk.green('Deploy target:')} ${scan.deployTarget}`);
-    console.log(`  ${chalk.green('Dependencies:')} ${scan.dependencies.length}`);
+    const lbl = (t: string) => chalk.hex(pal.INFO_C)(t);
+    console.log(`  ${lbl('Stack:')} ${stack} (${projectType})`);
+    console.log(`  ${lbl('Key files:')} ${scan.keyFiles.length} detected`);
+    console.log(`  ${lbl('Run commands:')} ${scan.runCommands.length} found`);
+    console.log(`  ${lbl('AI provider:')} ${scan.aiProvider}`);
+    console.log(`  ${lbl('Database:')} ${scan.database}`);
+    console.log(`  ${lbl('Deploy target:')} ${scan.deployTarget}`);
+    console.log(`  ${lbl('Dependencies:')} ${scan.dependencies.length}`);
     console.log('');
 
     // Check what already exists
@@ -413,11 +415,11 @@ export const scanCommand = new Command('scan')
         console.log(chalk.dim('  Skipping CLAUDE.md.\n'));
       } else {
         writeFile(join(cwd, 'CLAUDE.md'), generateScannedClaudeMd(scan));
-        console.log(`  ${chalk.green('+')} CLAUDE.md (populated from codebase scan)`);
+        console.log(`  ${symbols.plus} CLAUDE.md (populated from codebase scan)`);
       }
     } else {
       writeFile(join(cwd, 'CLAUDE.md'), generateScannedClaudeMd(scan));
-      console.log(`  ${chalk.green('+')} CLAUDE.md (populated from codebase scan)`);
+      console.log(`  ${symbols.plus} CLAUDE.md (populated from codebase scan)`);
     }
 
     // Generate session log structure
@@ -426,8 +428,8 @@ export const scanCommand = new Command('scan')
       ensureDir(join(cwd, 'docs', 'sessions'));
       writeFile(join(cwd, 'docs', 'sessions', 'README.md'), generateSessionIndex(projectName));
       writeFile(join(cwd, 'docs', 'sessions', `${date}_session.md`), generateSessionLog(date));
-      console.log(`  ${chalk.green('+')} docs/sessions/README.md`);
-      console.log(`  ${chalk.green('+')} docs/sessions/${date}_session.md`);
+      console.log(`  ${symbols.plus} docs/sessions/README.md`);
+      console.log(`  ${symbols.plus} docs/sessions/${date}_session.md`);
     } else {
       console.log(chalk.dim('  docs/sessions/ already exists, skipping.'));
     }
@@ -441,7 +443,7 @@ export const scanCommand = new Command('scan')
     if (!securityPaths.some(p => fileExists(p))) {
       ensureDir(join(cwd, 'docs'));
       writeFile(join(cwd, 'docs', 'SECURITY_CHECKLIST.md'), generateSecurityChecklist(projectType));
-      console.log(`  ${chalk.green('+')} docs/SECURITY_CHECKLIST.md`);
+      console.log(`  ${symbols.plus} docs/SECURITY_CHECKLIST.md`);
     }
 
     // Generate .env.example if .env exists but no example
@@ -457,9 +459,9 @@ export const scanCommand = new Command('scan')
         })
         .join('\n');
       writeFile(join(cwd, '.env.example'), sanitized);
-      console.log(`  ${chalk.green('+')} .env.example (generated from .env, values redacted)`);
+      console.log(`  ${symbols.plus} .env.example (generated from .env, values redacted)`);
     }
 
-    console.log(chalk.bold.green(`\n  Scan complete.`));
-    console.log(chalk.dim(`\n  Next: maestro audit\n`));
+    console.log(sb('Scan complete.'));
+    console.log(fmtHint('maestro audit'));
   });

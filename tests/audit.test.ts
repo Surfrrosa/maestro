@@ -40,7 +40,7 @@ describe('audit command', () => {
   it('scores an empty directory low', () => {
     setupProject({});
     const output = runAudit(TEST_DIR);
-    expect(output).toContain('FAIL');
+    expect(output).toContain('\u2717');
     expect(output).toContain('CLAUDE.md');
   });
 
@@ -49,7 +49,7 @@ describe('audit command', () => {
       'CLAUDE.md': '# Project\n\nSome real content here.\n\n## Session Protocol\n\nRead the latest session log.\n\n## Running\n\nnpm run dev\n\n## Key Files\n\n| File | Purpose |\n|------|---------|',
     });
     const output = runAudit(TEST_DIR);
-    expect(output).toContain('PASS');
+    expect(output).toContain('\u2713');
     expect(output).toContain('CLAUDE.md exists');
   });
 
@@ -58,7 +58,7 @@ describe('audit command', () => {
       'CLAUDE.md': '# Project\n## Session\n## Running\n## Key Files\n',
     });
     const output = runAudit(TEST_DIR);
-    expect(output).toContain('FAIL');
+    expect(output).toContain('\u2717');
     expect(output).toContain('minimal content');
   });
 
@@ -69,7 +69,7 @@ describe('audit command', () => {
       'docs/sessions/2026-02-21_session.md': '# Session\n',
     });
     const output = runAudit(TEST_DIR);
-    expect(output).toContain('PASS');
+    expect(output).toContain('\u2713');
     expect(output).toContain('Session logs present');
     expect(output).toContain('Session index maintained');
   });
@@ -89,7 +89,7 @@ describe('audit command', () => {
       }),
     });
     const output = runAudit(TEST_DIR);
-    expect(output).toContain('FAIL');
+    expect(output).toContain('\u2717');
     expect(output).toContain('Dependency pinning');
     expect(output).toContain('chalk');
   });
@@ -101,7 +101,7 @@ describe('audit command', () => {
       }),
     });
     const output = runAudit(TEST_DIR);
-    expect(output).toContain('PASS');
+    expect(output).toContain('\u2713');
     expect(output).toContain('Dependency pinning');
   });
 
@@ -110,7 +110,7 @@ describe('audit command', () => {
       'requirements.txt': 'flask>=2.0.0\nrequests\n',
     });
     const output = runAudit(TEST_DIR);
-    expect(output).toContain('FAIL');
+    expect(output).toContain('\u2717');
     expect(output).toContain('Dependency pinning');
   });
 
@@ -120,7 +120,7 @@ describe('audit command', () => {
       '.gitignore': '.env\n',
     });
     const output = runAudit(TEST_DIR);
-    expect(output).toContain('FAIL');
+    expect(output).toContain('\u2717');
     expect(output).toContain('node_modules');
   });
 

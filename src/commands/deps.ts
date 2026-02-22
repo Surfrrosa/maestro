@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { readFileSync, existsSync } from 'node:fs';
 import { glob } from 'glob';
 import { fileExists, readFile, detectStack } from '../utils/fs.js';
-import { header, info, PASS, FAIL, WARN, divider } from '../utils/format.js';
+import { header, info, PASS, FAIL, WARN, divider, section } from '../utils/format.js';
 
 export interface DepFinding {
   category: 'unused' | 'phantom' | 'license';
@@ -296,7 +296,7 @@ export const depsCommand = new Command('deps')
 
     for (const [category, items] of Object.entries(grouped)) {
       const icon = category === 'license' ? FAIL : category === 'phantom' ? WARN : WARN;
-      console.log(`  ${chalk.bold(categoryLabels[category] || category)}\n`);
+      console.log(section(categoryLabels[category] || category));
       for (const item of items) {
         console.log(`  ${icon}  ${chalk.white(item.name)}`);
         console.log(`     ${chalk.dim(item.detail)}`);

@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { parseSessionLogs, type ParsedSession } from '../utils/sessions.js';
-import { header, PASS, FAIL, WARN, divider } from '../utils/format.js';
+import { header, PASS, FAIL, WARN, divider, palette, section } from '../utils/format.js';
 
 export interface BugEntry {
   description: string;
@@ -124,10 +124,10 @@ export const bugsCommand = new Command('bugs')
     }
 
     if (openBugs.length > 0) {
-      console.log(chalk.bold(`  Open Issues (${openBugs.length})\n`));
+      console.log(section(`Open Issues (${openBugs.length})`));
       for (const bug of openBugs) {
         const isStale = bug.sessionCount >= 3;
-        const icon = isStale ? chalk.red('STALE') : chalk.yellow('OPEN ');
+        const icon = isStale ? chalk.hex(palette.FAIL_C).bold('STALE') : chalk.hex(palette.WARN_C)('OPEN ');
         const age = isStale ? chalk.dim(` (first seen: ${bug.firstSeen}, ${bug.sessionCount} sessions ago)`) : chalk.dim(` (first seen: ${bug.firstSeen})`);
         console.log(`  ${icon}  ${bug.description}${age}`);
         console.log(chalk.dim(`         src: docs/sessions/${bug.firstFile}`));
@@ -136,7 +136,7 @@ export const bugsCommand = new Command('bugs')
     }
 
     if (resolvedBugs.length > 0) {
-      console.log(chalk.bold(`  Resolved (${resolvedBugs.length})\n`));
+      console.log(section(`Resolved (${resolvedBugs.length})`));
       for (const bug of resolvedBugs) {
         console.log(`  ${PASS}  ${bug.description} ${chalk.dim(`(resolved: ${bug.resolvedDate})`)}`);
       }
@@ -150,7 +150,7 @@ export const bugsCommand = new Command('bugs')
     console.log(divider());
     console.log(chalk.dim(`  ${allBugs.length} issue(s) tracked across ${sessions.length} session(s).`));
     if (staleBugs.length > 0) {
-      console.log(chalk.red(`  ${staleBugs.length} stale issue(s) need attention.\n`));
+      console.log(chalk.hex(palette.FAIL_C)(`  ${staleBugs.length} stale issue(s) need attention.\n`));
     } else {
       console.log('');
     }

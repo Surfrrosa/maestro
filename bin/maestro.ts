@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import chalk from 'chalk';
 import { initCommand } from '../src/commands/init.js';
 import { scanCommand } from '../src/commands/scan.js';
 import { auditCommand, auditAllCommand } from '../src/commands/audit.js';
@@ -13,20 +14,24 @@ import { hooksCommand } from '../src/commands/hooks.js';
 import { bugsCommand } from '../src/commands/bugs.js';
 import { reviewCommand } from '../src/commands/review.js';
 import { changelogCommand } from '../src/commands/changelog.js';
+import { banner } from '../src/utils/format.js';
 
 const program = new Command();
+
+const b = chalk.hex('#9580FF')('\u2022');
 
 program
   .name('maestro')
   .description('AI-native project scaffolding and development lifecycle CLI.')
   .version('0.3.0');
 
+program.addHelpText('beforeAll', banner('0.3.0'));
 program.addHelpText('after', `
-  Setup:     scan, init, hooks install
-  Workflow:  session, check, review
-  Health:    audit, quality, security, deps
-  Insights:  bugs, changelog, audit-all
-  Brand:     voice, design-system
+  ${b} Setup      scan, init, hooks install
+  ${b} Workflow   session, check, review
+  ${b} Health     audit, quality, security, deps
+  ${b} Insights   bugs, changelog, audit-all
+  ${b} Brand      voice, design-system
 `);
 
 program.addCommand(scanCommand);

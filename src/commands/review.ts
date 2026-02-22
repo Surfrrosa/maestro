@@ -4,7 +4,7 @@ import { execSync } from 'node:child_process';
 import { join } from 'node:path';
 import { statSync } from 'node:fs';
 import { fileExists, readFile } from '../utils/fs.js';
-import { header, PASS, FAIL, WARN, divider } from '../utils/format.js';
+import { header, PASS, FAIL, WARN, divider, successBanner, failBanner, palette } from '../utils/format.js';
 import { SECRET_PATTERNS } from './security.js';
 
 export interface ReviewFinding {
@@ -324,12 +324,14 @@ export const reviewCommand = new Command('review')
     const warns = findings.filter(f => f.status === 'warn').length;
 
     if (fails > 0) {
-      console.log(chalk.red.bold(`  ${fails} failure(s) found. Fix before committing.\n`));
+      console.log(failBanner(`${fails} failure(s) found. Fix before committing.`));
+      console.log('');
       process.exit(1);
     } else if (warns > 0) {
-      console.log(chalk.yellow(`  ${warns} warning(s). Review before committing.\n`));
+      console.log(chalk.hex(palette.WARN_C)(`  ${warns} warning(s). Review before committing.\n`));
       if (options.strict) process.exit(1);
     } else {
-      console.log(chalk.green.bold('  All checks passed. Ready to commit.\n'));
+      console.log(successBanner('All checks passed. Ready to commit.'));
+      console.log('');
     }
   });

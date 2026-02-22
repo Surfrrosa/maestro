@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import { join } from 'node:path';
 import { existsSync, readdirSync } from 'node:fs';
 import { fileExists, readFile } from '../utils/fs.js';
-import { PASS, FAIL, WARN, header } from '../utils/format.js';
+import { PASS, FAIL, WARN, header, successBanner, failBanner, hint, palette } from '../utils/format.js';
 
 interface CheckResult {
   name: string;
@@ -134,11 +134,12 @@ export const checkCommand = new Command('check')
     console.log('');
 
     if (hasBlocking) {
-      console.log(chalk.red.bold('  Session blocked. Fix the failures above before starting work.'));
-      console.log(chalk.dim('\n  Next: maestro scan\n'));
+      console.log(failBanner('Session blocked. Fix the failures above before starting work.'));
+      console.log(hint('maestro scan'));
     } else if (hasWarnings) {
-      console.log(chalk.yellow('  Warnings found. Review before starting work.\n'));
+      console.log(chalk.hex(palette.WARN_C)('  Warnings found. Review before starting work.\n'));
     } else {
-      console.log(chalk.green.bold('  Ready to work.\n'));
+      console.log(successBanner('Ready to work.'));
+      console.log('');
     }
   });

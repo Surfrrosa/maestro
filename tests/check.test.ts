@@ -37,7 +37,7 @@ describe('check command', () => {
   it('fails on empty directory', () => {
     setupProject({});
     const { stdout } = runCheck(TEST_DIR);
-    expect(stdout).toContain('FAIL');
+    expect(stdout).toContain('\u2717');
     expect(stdout).toContain('CLAUDE.md');
     expect(stdout).toContain('Session blocked');
   });
@@ -50,7 +50,7 @@ describe('check command', () => {
       'README.md': '# Test\n',
     });
     const { stdout } = runCheck(TEST_DIR);
-    expect(stdout).toContain('PASS');
+    expect(stdout).toContain('\u2713');
     expect(stdout).toContain('Ready to work');
   });
 
@@ -60,7 +60,7 @@ describe('check command', () => {
       'docs/sessions/2026-02-21_session.md': '# Session\n\n## Status: Blocked\n',
     });
     const { stdout } = runCheck(TEST_DIR);
-    expect(stdout).toContain('WARN');
+    expect(stdout).toContain('\u25B3');
     expect(stdout).toContain('Blocked');
   });
 
@@ -70,7 +70,7 @@ describe('check command', () => {
       'docs/sessions/2026-02-21_session.md': '# Session\n\n## Status: In Progress\n\n## Known Issues Discovered\n- Auth token expiring too fast\n',
     });
     const { stdout } = runCheck(TEST_DIR);
-    expect(stdout).toContain('WARN');
+    expect(stdout).toContain('\u25B3');
     expect(stdout).toContain('issue(s)');
   });
 
