@@ -14,6 +14,7 @@ import { hooksCommand } from '../src/commands/hooks.js';
 import { bugsCommand } from '../src/commands/bugs.js';
 import { reviewCommand } from '../src/commands/review.js';
 import { changelogCommand } from '../src/commands/changelog.js';
+import { reportCommand } from '../src/commands/report.js';
 import { banner } from '../src/utils/format.js';
 
 const program = new Command();
@@ -27,6 +28,8 @@ program
 
 program.addHelpText('beforeAll', banner('0.3.0'));
 program.addHelpText('after', `
+  ${b} Report     maestro report (full health check)
+
   ${b} Setup      scan, init, hooks install
   ${b} Workflow   session, check, review
   ${b} Health     audit, quality, security, deps
@@ -49,5 +52,6 @@ program.addCommand(hooksCommand);
 program.addCommand(bugsCommand);
 program.addCommand(reviewCommand);
 program.addCommand(changelogCommand);
+program.addCommand(reportCommand);
 
 program.parse();

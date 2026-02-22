@@ -9,7 +9,7 @@ import { generateClaudeMd } from '../templates/claude-md.js';
 import { generateSessionIndex } from '../templates/session-index.js';
 import { generateSessionLog } from '../templates/session-log.js';
 
-interface AuditCheck {
+export interface AuditCheck {
   name: string;
   passed: boolean;
   detail: string;

@@ -463,5 +463,5 @@ export const scanCommand = new Command('scan')
     }
 
     console.log(sb('Scan complete.'));
-    console.log(fmtHint('maestro audit'));
+    console.log(fmtHint('maestro report'));
   });
