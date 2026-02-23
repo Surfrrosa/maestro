@@ -36,7 +36,7 @@ async function scanSecrets(cwd: string): Promise<SecurityFinding[]> {
   const findings: SecurityFinding[] = [];
   const files = await glob('**/*.{ts,js,tsx,jsx,py,json,yml,yaml,toml,cfg,ini,env}', {
     cwd,
-    ignore: ['node_modules/**', 'dist/**', '.git/**', '__pycache__/**', '*.lock', 'package-lock.json', '.env.example', '**/*.test.*', '**/*.spec.*'],
+    ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/__pycache__/**', '*.lock', 'package-lock.json', '.env.example', '**/*.test.*', '**/*.spec.*'],
     maxDepth: 6,
   });
 
@@ -91,7 +91,7 @@ async function scanEnvLeaks(cwd: string): Promise<SecurityFinding[]> {
 
   const files = await glob('**/*.{ts,js,tsx,jsx,py}', {
     cwd,
-    ignore: ['node_modules/**', 'dist/**', '.git/**', '__pycache__/**'],
+    ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/__pycache__/**'],
     maxDepth: 6,
   });
 
@@ -140,7 +140,7 @@ async function scanUnsafeExec(cwd: string): Promise<SecurityFinding[]> {
 
   const files = await glob('**/*.{ts,js,tsx,jsx,py}', {
     cwd,
-    ignore: ['node_modules/**', 'dist/**', '.git/**', '__pycache__/**', '**/*.test.*', '**/*.spec.*', '**/security.ts', '**/review.ts', '**/changelog.ts'],
+    ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/__pycache__/**', '**/*.test.*', '**/*.spec.*', '**/security.ts', '**/review.ts', '**/changelog.ts'],
     maxDepth: 6,
   });
 
@@ -174,7 +174,7 @@ async function scanDockerExposure(cwd: string): Promise<SecurityFinding[]> {
   const findings: SecurityFinding[] = [];
   const dockerfiles = await glob('**/Dockerfile*', {
     cwd,
-    ignore: ['node_modules/**', '.git/**'],
+    ignore: ['**/node_modules/**', '**/.git/**'],
     maxDepth: 3,
   });
 

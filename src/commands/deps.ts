@@ -81,7 +81,7 @@ async function scanNodeImports(cwd: string): Promise<Set<string>> {
 
   const files = await glob('**/*.{ts,js,tsx,jsx}', {
     cwd,
-    ignore: ['node_modules/**', 'dist/**', '.git/**', '**/*.d.ts'],
+    ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/*.d.ts'],
     maxDepth: 8,
   });
 
@@ -114,7 +114,7 @@ async function scanPythonImports(cwd: string): Promise<Set<string>> {
 
   const files = await glob('**/*.py', {
     cwd,
-    ignore: ['__pycache__/**', '.git/**', 'venv/**', '.venv/**', 'env/**'],
+    ignore: ['**/__pycache__/**', '**/.git/**', '**/venv/**', '**/.venv/**', '**/env/**'],
     maxDepth: 8,
   });
 

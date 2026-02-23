@@ -2,6 +2,7 @@ import { glob } from 'glob';
 import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { detectStack } from '../utils/fs.js';
+import { loadConfig } from '../utils/config.js';
 import type { AnalyzerContext } from './types.js';
 
 export async function buildContext(cwd: string): Promise<AnalyzerContext> {
@@ -16,8 +17,8 @@ export async function buildContext(cwd: string): Promise<AnalyzerContext> {
   const files = await glob(pattern, {
     cwd,
     ignore: [
-      'node_modules/**', 'dist/**', 'build/**', '.next/**',
-      '.git/**', '__pycache__/**', 'coverage/**', '.expo/**',
+      '**/node_modules/**', '**/dist/**', '**/build/**', '**/.next/**',
+      '**/.git/**', '**/__pycache__/**', '**/coverage/**', '**/.expo/**',
       '*.min.js', '*.bundle.js', '*.d.ts',
     ],
     maxDepth: 8,
@@ -29,6 +30,7 @@ export async function buildContext(cwd: string): Promise<AnalyzerContext> {
     fileContents: new Map(),
     stack,
     sourceExtensions,
+    config: loadConfig(cwd),
   };
 }
 

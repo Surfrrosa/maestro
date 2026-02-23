@@ -241,7 +241,7 @@ async function checkSecrets(cwd: string): Promise<AuditCheck> {
   try {
     const files = await glob('**/*.{ts,js,py,json,yml,yaml,toml,cfg,ini}', {
       cwd,
-      ignore: ['node_modules/**', 'dist/**', '.git/**', '__pycache__/**', '*.lock', 'package-lock.json'],
+      ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/__pycache__/**', '*.lock', 'package-lock.json'],
       maxDepth: 5,
     });
 

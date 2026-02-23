@@ -2,6 +2,7 @@ import type { QualityFinding, AnalyzerContext } from './types.js';
 import { getContent } from './context.js';
 import { basename, dirname, join, relative } from 'node:path';
 import { existsSync } from 'node:fs';
+import { minimatch } from 'minimatch';
 
 interface ImportGraph {
   imports: Map<string, Set<string>>;
@@ -153,7 +154,9 @@ export function analyzeDeadCode(ctx: AnalyzerContext): QualityFinding[] {
       const isCommand = file.includes('commands/');
       const isTemplate = file.includes('templates/');
 
-      if (!isEntryPoint && !isTest && !isConfig && !isBin && !isCommand && !isTemplate) {
+      const isIgnored = ctx.config.quality.ignore.some(pattern => minimatch(file, pattern));
+
+      if (!isEntryPoint && !isTest && !isConfig && !isBin && !isCommand && !isTemplate && !isIgnored) {
         findings.push({
           rule: 'unused-file',
           category: 'dead-code',

@@ -33,10 +33,17 @@ export interface QualityReport {
   fixableCount: number;
 }
 
+export interface MaestroConfig {
+  quality: {
+    ignore: string[];
+  };
+}
+
 export interface AnalyzerContext {
   cwd: string;
   files: string[];
   fileContents: Map<string, string>;
   stack: 'node' | 'python' | 'unknown';
   sourceExtensions: string[];
+  config: MaestroConfig;
 }
