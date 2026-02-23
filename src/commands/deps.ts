@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { join } from 'node:path';
 import { readFileSync, existsSync } from 'node:fs';
-import { glob } from 'glob';
+import { glob, globSync } from 'glob';
 import { fileExists, readFile, detectStack } from '../utils/fs.js';
 import { header, info, PASS, FAIL, WARN, divider, section } from '../utils/format.js';
 
@@ -65,6 +65,8 @@ function extractPackageName(importPath: string): string | null {
   // Scoped packages: @scope/pkg/sub -> @scope/pkg
   if (importPath.startsWith('@')) {
     const parts = importPath.split('/');
+    // Skip path aliases like @/, @components/, @lib/ (not real scoped packages)
+    if (parts[0] === '@' || !parts[0].match(/^@[a-z0-9][\w.-]*$/i)) return null;
     return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : null;
   }
   // Regular packages: pkg/sub -> pkg
@@ -144,6 +146,7 @@ function getDeclaredDeps(cwd: string, stack: string): Map<string, string> {
   const deps = new Map<string, string>();
 
   if (stack === 'node') {
+    // Read root package.json
     const pkgPath = join(cwd, 'package.json');
     if (fileExists(pkgPath)) {
       try {
@@ -154,6 +157,25 @@ function getDeclaredDeps(cwd: string, stack: string): Map<string, string> {
       } catch {
         // Skip
       }
+    }
+    // Also read subdirectory package.json files (monorepo/workspace support)
+    try {
+      const subPkgs = globSync('*/package.json', {
+        cwd,
+        ignore: ['node_modules/**'],
+      });
+      for (const subPkg of subPkgs) {
+        try {
+          const pkg = JSON.parse(readFileSync(join(cwd, subPkg), 'utf-8'));
+          for (const [name, version] of Object.entries({ ...pkg.dependencies, ...pkg.devDependencies } || {})) {
+            if (!deps.has(name)) deps.set(name, version as string);
+          }
+        } catch {
+          // Skip
+        }
+      }
+    } catch {
+      // Skip
     }
   } else if (stack === 'python') {
     const reqPath = join(cwd, 'requirements.txt');
@@ -226,9 +248,11 @@ export async function runDepsAnalysis(cwd: string): Promise<DepFinding[]> {
     const isUsed = [...imported].some(imp => imp.toLowerCase() === depLower);
     // Skip type packages for TS (@types/*)
     if (dep.startsWith('@types/')) continue;
-    // Skip CLI tools that might not be imported (tsup, vitest, eslint, etc.)
-    const cliTools = ['tsup', 'vitest', 'jest', 'mocha', 'eslint', 'prettier', 'typescript', 'tsc', 'nodemon', 'ts-node', 'tsx'];
+    // Skip CLI tools and their plugins that aren't directly imported
+    const cliTools = ['tsup', 'vitest', 'jest', 'mocha', 'eslint', 'prettier', 'typescript', 'tsc', 'nodemon', 'ts-node', 'tsx', 'postcss', 'autoprefixer', 'tailwindcss'];
+    const cliPluginPrefixes = ['@typescript-eslint/', '@vitest/', '@eslint/', 'eslint-plugin-', 'eslint-config-', '@vitejs/'];
     if (cliTools.includes(dep)) continue;
+    if (cliPluginPrefixes.some(prefix => dep.startsWith(prefix))) continue;
 
     if (!isUsed) {
       findings.push({

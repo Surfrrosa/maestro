@@ -15,6 +15,8 @@ function makeContext(files: Record<string, string>, stack: 'node' | 'python' = '
     fileContents: new Map(Object.entries(files)),
     stack,
     sourceExtensions: stack === 'python' ? ['py'] : ['ts', 'js'],
+    config: { quality: { ignore: [] } },
+    pathAliases: new Map(),
   };
 }
 

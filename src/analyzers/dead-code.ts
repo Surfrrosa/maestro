@@ -19,9 +19,19 @@ const EXTENSION_REMAP: Record<string, string[]> = {
 };
 
 function resolveImport(importPath: string, fromFile: string, ctx: AnalyzerContext): string | null {
-  if (!importPath.startsWith('.')) return null; // Skip package imports
+  // Resolve path aliases (e.g. @/components/Sidebar -> src/components/Sidebar)
+  let aliasResolved = false;
+  for (const [prefix, target] of ctx.pathAliases) {
+    if (importPath.startsWith(prefix)) {
+      importPath = target + importPath.slice(prefix.length);
+      aliasResolved = true;
+      break;
+    }
+  }
 
-  const fromDir = dirname(fromFile);
+  if (!importPath.startsWith('.') && !aliasResolved) return null; // Skip package imports
+
+  const fromDir = aliasResolved ? '' : dirname(fromFile);
   const resolved = join(fromDir, importPath).replace(/\\/g, '/');
 
   // Try exact match first

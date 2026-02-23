@@ -46,4 +46,5 @@ export interface AnalyzerContext {
   stack: 'node' | 'python' | 'unknown';
   sourceExtensions: string[];
   config: MaestroConfig;
+  pathAliases: Map<string, string>; // e.g. "@/" -> "src/"
 }
