@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { join } from 'node:path';
-import { existsSync, chmodSync } from 'node:fs';
+import { existsSync, chmodSync, unlinkSync } from 'node:fs';
 import { writeFile, ensureDir, fileExists, readFile } from '../utils/fs.js';
 import { header, info } from '../utils/format.js';
 
@@ -137,6 +137,74 @@ hooksCommand
     }
 
     console.log(chalk.dim(`\n  Next: maestro check\n`));
+  });
+
+hooksCommand
+  .command('uninstall')
+  .description('Remove maestro-installed hooks')
+  .option('--claude', 'Remove Claude Code hook only')
+  .option('--git', 'Remove git post-checkout hook only')
+  .option('--pre-commit', 'Remove git pre-commit hook only')
+  .action(async (options: { claude?: boolean; git?: boolean; preCommit?: boolean }) => {
+    const cwd = process.cwd();
+    const removeAll = !options.claude && !options.git && !options.preCommit;
+    let removed = 0;
+
+    console.log(header('maestro hooks uninstall'));
+
+    if (removeAll || options.claude) {
+      const hookPath = join(cwd, '.claude', 'hooks.json');
+      if (fileExists(hookPath)) {
+        const content = readFile(hookPath);
+        if (content.includes('maestro')) {
+          unlinkSync(hookPath);
+          console.log(chalk.green(`  - .claude/hooks.json (removed)`));
+          removed++;
+        } else {
+          console.log(chalk.yellow(`  .claude/hooks.json exists but was not installed by maestro. Skipping.`));
+        }
+      } else {
+        console.log(chalk.dim(`  .claude/hooks.json not found.`));
+      }
+    }
+
+    if (removeAll || options.git) {
+      const hookPath = join(cwd, '.git', 'hooks', 'post-checkout');
+      if (fileExists(hookPath)) {
+        const content = readFile(hookPath);
+        if (content.includes('maestro')) {
+          unlinkSync(hookPath);
+          console.log(chalk.green(`  - .git/hooks/post-checkout (removed)`));
+          removed++;
+        } else {
+          console.log(chalk.yellow(`  post-checkout hook exists but was not installed by maestro. Skipping.`));
+        }
+      } else {
+        console.log(chalk.dim(`  .git/hooks/post-checkout not found.`));
+      }
+    }
+
+    if (removeAll || options.preCommit) {
+      const hookPath = join(cwd, '.git', 'hooks', 'pre-commit');
+      if (fileExists(hookPath)) {
+        const content = readFile(hookPath);
+        if (content.includes('maestro')) {
+          unlinkSync(hookPath);
+          console.log(chalk.green(`  - .git/hooks/pre-commit (removed)`));
+          removed++;
+        } else {
+          console.log(chalk.yellow(`  pre-commit hook exists but was not installed by maestro. Skipping.`));
+        }
+      } else {
+        console.log(chalk.dim(`  .git/hooks/pre-commit not found.`));
+      }
+    }
+
+    if (removed === 0) {
+      console.log(chalk.dim(`\n  No maestro hooks found to remove.\n`));
+    } else {
+      console.log(chalk.dim(`\n  Removed ${removed} hook(s).\n`));
+    }
   });
 
 export { hooksCommand };

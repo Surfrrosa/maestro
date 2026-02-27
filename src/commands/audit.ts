@@ -1,13 +1,13 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { join, basename } from 'node:path';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { glob } from 'glob';
+import { existsSync, readdirSync } from 'node:fs';
 import { PASS, FAIL, header, info, scoreBar, section, SYM, palette, hint, successBanner, divider } from '../utils/format.js';
 import { fileExists, readFile, writeFile, ensureDir, detectStack, today, copyToClipboard } from '../utils/fs.js';
 import { generateClaudeMd } from '../templates/claude-md.js';
 import { generateSessionIndex } from '../templates/session-index.js';
 import { generateSessionLog } from '../templates/session-log.js';
+import { runSecurityScan } from './security.js';
 
 export interface AuditCheck {
   name: string;
@@ -231,37 +231,13 @@ function checkSecurity(cwd: string): AuditCheck {
 }
 
 async function checkSecrets(cwd: string): Promise<AuditCheck> {
-  const patterns = [
-    /(?:api[_-]?key|apikey|secret[_-]?key|access[_-]?token|auth[_-]?token)\s*[:=]\s*['\"][a-zA-Z0-9]{16,}/i,
-    /sk-[a-zA-Z0-9]{20,}/,
-    /ghp_[a-zA-Z0-9]{36}/,
-    /(?:AKIA|ABIA|ACCA|ASIA)[A-Z0-9]{16}/,
-  ];
-
   try {
-    const files = await glob('**/*.{ts,js,py,json,yml,yaml,toml,cfg,ini}', {
-      cwd,
-      ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/__pycache__/**', '*.lock', 'package-lock.json'],
-      maxDepth: 5,
-    });
-
-    for (const file of files.slice(0, 100)) {
-      try {
-        const content = readFileSync(join(cwd, file), 'utf-8');
-        for (const pattern of patterns) {
-          if (pattern.test(content)) {
-            return {
-              name: 'No tracked secrets',
-              passed: false,
-              detail: `Potential secret found in ${file}.`,
-              fixable: false,
-              weight: 5,
-            };
-          }
-        }
-      } catch {
-        // Skip unreadable files
-      }
+    const findings = await runSecurityScan(cwd);
+    const secrets = findings.filter(f => f.category === 'secrets');
+    if (secrets.length > 0) {
+      const locations = secrets.slice(0, 3).map(f => f.file).filter(Boolean);
+      const detail = `${secrets.length} potential secret(s) found${locations.length > 0 ? ` in ${locations.join(', ')}` : ''}.`;
+      return { name: 'No tracked secrets', passed: false, detail, fixable: false, weight: 5 };
     }
   } catch {
     return { name: 'No tracked secrets', passed: true, detail: 'Could not scan files.', fixable: false, weight: 5 };

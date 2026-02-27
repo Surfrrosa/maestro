@@ -32,15 +32,22 @@ export const SECRET_PATTERNS: Array<{ regex: RegExp; name: string }> = [
   { regex: /twilio[_-]?(?:auth|account)[_-]?(?:token|sid)\s*[:=]\s*['"][a-zA-Z0-9]/i, name: 'Twilio credential' },
 ];
 
+const SCAN_FILE_LIMIT = 500;
+
 async function scanSecrets(cwd: string): Promise<SecurityFinding[]> {
   const findings: SecurityFinding[] = [];
-  const files = await glob('**/*.{ts,js,tsx,jsx,py,json,yml,yaml,toml,cfg,ini,env}', {
+  const allFiles = await glob('**/*.{ts,js,tsx,jsx,py,json,yml,yaml,toml,cfg,ini,env}', {
     cwd,
     ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/__pycache__/**', '*.lock', 'package-lock.json', '.env.example', '**/*.test.*', '**/*.spec.*'],
     maxDepth: 6,
   });
 
-  for (const file of files.slice(0, 200)) {
+  const files = allFiles.slice(0, SCAN_FILE_LIMIT);
+  if (allFiles.length > SCAN_FILE_LIMIT) {
+    console.warn(`  ${chalk.yellow('!')}  Scanned ${SCAN_FILE_LIMIT} of ${allFiles.length} files. Large project -- results may be incomplete.`);
+  }
+
+  for (const file of files) {
     try {
       const content = readFileSync(join(cwd, file), 'utf-8');
       const lines = content.split('\n');

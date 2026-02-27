@@ -1,42 +1,47 @@
 import type { QualityFinding, AnalyzerContext } from './types.js';
 import { getContent } from './context.js';
 
-const MAX_FILE_LINES = 300;
-const MAX_FUNCTION_LINES = 50;
-const MAX_NESTING_DEPTH = 4;
+// Default thresholds -- overridable via .maestrorc.json quality.thresholds
+const DEFAULT_MAX_FILE_LINES = 300;
+const DEFAULT_MAX_FUNCTION_LINES = 50;
+const DEFAULT_MAX_NESTING_DEPTH = 4;
 
 export function analyzeComplexity(ctx: AnalyzerContext): QualityFinding[] {
   const findings: QualityFinding[] = [];
+  const thresholds = ctx.config.quality.thresholds;
+  const maxFileLines = thresholds?.maxFileLines ?? DEFAULT_MAX_FILE_LINES;
+  const maxFuncLines = thresholds?.maxFunctionLines ?? DEFAULT_MAX_FUNCTION_LINES;
+  const maxNesting = thresholds?.maxNestingDepth ?? DEFAULT_MAX_NESTING_DEPTH;
 
   for (const file of ctx.files) {
     const content = getContent(ctx, file);
     const lines = content.split('\n');
 
     // File size check
-    if (lines.length > MAX_FILE_LINES) {
+    if (lines.length > maxFileLines) {
       findings.push({
         rule: 'file-size',
         category: 'complexity',
         severity: lines.length > 500 ? 'error' : 'warning',
         file,
-        message: `File has ${lines.length} lines (max ${MAX_FILE_LINES}). Consider splitting into smaller modules.`,
+        message: `File has ${lines.length} lines (max ${maxFileLines}). Consider splitting into smaller modules.`,
         suggestion: 'Extract related functions into separate files.',
       });
     }
 
     // Function length check
-    const funcFindings = analyzeFunctionLengths(content, file, ctx.stack);
+    const funcFindings = analyzeFunctionLengths(content, file, ctx.stack, maxFuncLines);
     findings.push(...funcFindings);
 
     // Nesting depth check
-    const nestFindings = analyzeNestingDepth(content, file, ctx.stack);
+    const nestFindings = analyzeNestingDepth(content, file, ctx.stack, maxNesting);
     findings.push(...nestFindings);
   }
 
   return findings;
 }
 
-function analyzeFunctionLengths(content: string, file: string, stack: string): QualityFinding[] {
+function analyzeFunctionLengths(content: string, file: string, stack: string, maxFuncLines: number): QualityFinding[] {
   const findings: QualityFinding[] = [];
   const lines = content.split('\n');
 
@@ -54,14 +59,14 @@ function analyzeFunctionLengths(content: string, file: string, stack: string): Q
         // Close previous function if we're at same or lower indent
         if (funcStart >= 0 && defMatch[1].length <= funcIndent) {
           const funcLength = i - funcStart;
-          if (funcLength > MAX_FUNCTION_LINES) {
+          if (funcLength > maxFuncLines) {
             findings.push({
               rule: 'function-length',
               category: 'complexity',
               severity: funcLength > 100 ? 'error' : 'warning',
               file,
               line: funcStart + 1,
-              message: `Function '${funcName}' is ${funcLength} lines (max ${MAX_FUNCTION_LINES}).`,
+              message: `Function '${funcName}' is ${funcLength} lines (max ${maxFuncLines}).`,
               suggestion: 'Break into smaller functions with single responsibilities.',
             });
           }
@@ -74,14 +79,14 @@ function analyzeFunctionLengths(content: string, file: string, stack: string): Q
     // Check last function
     if (funcStart >= 0) {
       const funcLength = lines.length - funcStart;
-      if (funcLength > MAX_FUNCTION_LINES) {
+      if (funcLength > maxFuncLines) {
         findings.push({
           rule: 'function-length',
           category: 'complexity',
           severity: funcLength > 100 ? 'error' : 'warning',
           file,
           line: funcStart + 1,
-          message: `Function '${funcName}' is ${funcLength} lines (max ${MAX_FUNCTION_LINES}).`,
+          message: `Function '${funcName}' is ${funcLength} lines (max ${maxFuncLines}).`,
           suggestion: 'Break into smaller functions with single responsibilities.',
         });
       }
@@ -127,14 +132,14 @@ function analyzeFunctionLengths(content: string, file: string, stack: string): Q
           braceDepth--;
           if (funcStart >= 0 && braceDepth <= funcBraceStart) {
             const funcLength = i - funcStart + 1;
-            if (funcLength > MAX_FUNCTION_LINES) {
+            if (funcLength > maxFuncLines) {
               findings.push({
                 rule: 'function-length',
                 category: 'complexity',
                 severity: funcLength > 100 ? 'error' : 'warning',
                 file,
                 line: funcStart + 1,
-                message: `Function '${funcName}' is ${funcLength} lines (max ${MAX_FUNCTION_LINES}).`,
+                message: `Function '${funcName}' is ${funcLength} lines (max ${maxFuncLines}).`,
                 suggestion: 'Break into smaller functions with single responsibilities.',
               });
             }
@@ -148,39 +153,64 @@ function analyzeFunctionLengths(content: string, file: string, stack: string): Q
   return findings;
 }
 
-function analyzeNestingDepth(content: string, file: string, stack: string): QualityFinding[] {
+function analyzeNestingDepth(content: string, file: string, stack: string, maxNesting: number): QualityFinding[] {
   const findings: QualityFinding[] = [];
   const lines = content.split('\n');
-  const reported = new Set<number>(); // Don't report same nesting block multiple times
 
   if (stack === 'python') {
-    // Python: use indentation level
+    // Python: use indentation level. Report once per contiguous deep block.
+    let inDeepBlock = false;
+    let blockStartLine = -1;
+    let blockMaxLevel = 0;
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (!line.trim()) continue;
       const indent = line.match(/^(\s*)/)?.[1].length || 0;
       const level = Math.floor(indent / 4); // Assume 4-space indentation
-      if (level > MAX_NESTING_DEPTH) {
-        const blockStart = Math.floor(i / 10) * 10; // Group nearby lines
-        if (!reported.has(blockStart)) {
-          reported.add(blockStart);
-          findings.push({
-            rule: 'nesting-depth',
-            category: 'complexity',
-            severity: level > 6 ? 'error' : 'warning',
-            file,
-            line: i + 1,
-            message: `Nesting depth of ${level} (max ${MAX_NESTING_DEPTH}). Deeply nested code is hard to follow.`,
-            suggestion: 'Extract inner logic into separate functions or use early returns.',
-          });
+
+      if (level > maxNesting) {
+        if (!inDeepBlock) {
+          inDeepBlock = true;
+          blockStartLine = i;
+          blockMaxLevel = level;
+        } else if (level > blockMaxLevel) {
+          blockMaxLevel = level;
         }
+      } else if (inDeepBlock) {
+        // Exited deep block -- emit one finding
+        findings.push({
+          rule: 'nesting-depth',
+          category: 'complexity',
+          severity: blockMaxLevel > 6 ? 'error' : 'warning',
+          file,
+          line: blockStartLine + 1,
+          message: `Nesting depth of ${blockMaxLevel} (max ${maxNesting}). Deeply nested code is hard to follow.`,
+          suggestion: 'Extract inner logic into separate functions or use early returns.',
+        });
+        inDeepBlock = false;
       }
     }
+    // Close any trailing deep block
+    if (inDeepBlock) {
+      findings.push({
+        rule: 'nesting-depth',
+        category: 'complexity',
+        severity: blockMaxLevel > 6 ? 'error' : 'warning',
+        file,
+        line: blockStartLine + 1,
+        message: `Nesting depth of ${blockMaxLevel} (max ${maxNesting}). Deeply nested code is hard to follow.`,
+        suggestion: 'Extract inner logic into separate functions or use early returns.',
+      });
+    }
   } else {
-    // TS/JS: count brace depth
+    // TS/JS: count brace depth. Report once when depth first exceeds threshold.
     let depth = 0;
     let inString = false;
     let stringChar = '';
+    let inDeepBlock = false;
+    let blockStartLine = -1;
+    let blockMaxDepth = 0;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -205,21 +235,39 @@ function analyzeNestingDepth(content: string, file: string, stack: string): Qual
         if (ch === '}') depth--;
       }
 
-      if (lineMaxDepth > MAX_NESTING_DEPTH) {
-        const blockStart = Math.floor(i / 10) * 10;
-        if (!reported.has(blockStart)) {
-          reported.add(blockStart);
-          findings.push({
-            rule: 'nesting-depth',
-            category: 'complexity',
-            severity: lineMaxDepth > 6 ? 'error' : 'warning',
-            file,
-            line: i + 1,
-            message: `Nesting depth of ${lineMaxDepth} (max ${MAX_NESTING_DEPTH}). Deeply nested code is hard to follow.`,
-            suggestion: 'Extract inner logic into separate functions or use early returns.',
-          });
+      if (lineMaxDepth > maxNesting) {
+        if (!inDeepBlock) {
+          inDeepBlock = true;
+          blockStartLine = i;
+          blockMaxDepth = lineMaxDepth;
+        } else if (lineMaxDepth > blockMaxDepth) {
+          blockMaxDepth = lineMaxDepth;
         }
+      } else if (inDeepBlock) {
+        // Exited deep block -- emit one finding
+        findings.push({
+          rule: 'nesting-depth',
+          category: 'complexity',
+          severity: blockMaxDepth > 6 ? 'error' : 'warning',
+          file,
+          line: blockStartLine + 1,
+          message: `Nesting depth of ${blockMaxDepth} (max ${maxNesting}). Deeply nested code is hard to follow.`,
+          suggestion: 'Extract inner logic into separate functions or use early returns.',
+        });
+        inDeepBlock = false;
       }
+    }
+    // Close any trailing deep block
+    if (inDeepBlock) {
+      findings.push({
+        rule: 'nesting-depth',
+        category: 'complexity',
+        severity: blockMaxDepth > 6 ? 'error' : 'warning',
+        file,
+        line: blockStartLine + 1,
+        message: `Nesting depth of ${blockMaxDepth} (max ${maxNesting}). Deeply nested code is hard to follow.`,
+        suggestion: 'Extract inner logic into separate functions or use early returns.',
+      });
     }
   }
 

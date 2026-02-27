@@ -25,5 +25,14 @@ export function loadConfig(cwd: string): MaestroConfig {
 function mergeConfig(raw: Record<string, unknown>): MaestroConfig {
   const quality = raw.quality as Record<string, unknown> | undefined;
   const ignore = Array.isArray(quality?.ignore) ? quality.ignore.filter((p): p is string => typeof p === 'string') : [];
-  return { quality: { ignore } };
+
+  // Parse optional thresholds
+  const rawThresholds = quality?.thresholds as Record<string, unknown> | undefined;
+  const thresholds = rawThresholds ? {
+    maxFileLines: typeof rawThresholds.maxFileLines === 'number' ? rawThresholds.maxFileLines : undefined,
+    maxFunctionLines: typeof rawThresholds.maxFunctionLines === 'number' ? rawThresholds.maxFunctionLines : undefined,
+    maxNestingDepth: typeof rawThresholds.maxNestingDepth === 'number' ? rawThresholds.maxNestingDepth : undefined,
+  } : undefined;
+
+  return { quality: { ignore, thresholds } };
 }

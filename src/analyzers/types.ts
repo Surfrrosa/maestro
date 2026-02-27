@@ -36,6 +36,11 @@ export interface QualityReport {
 export interface MaestroConfig {
   quality: {
     ignore: string[];
+    thresholds?: {
+      maxFileLines?: number;
+      maxFunctionLines?: number;
+      maxNestingDepth?: number;
+    };
   };
 }
 
