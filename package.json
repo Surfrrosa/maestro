@@ -31,7 +31,7 @@
   },
   "homepage": "https://github.com/Surfrrosa/maestro#readme",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.12.0"
   },
   "files": [
     "dist"

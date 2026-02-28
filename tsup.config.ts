@@ -4,7 +4,7 @@ export default defineConfig([
   {
     entry: ['bin/maestro.ts'],
     format: ['esm'],
-    target: 'node18',
+    target: 'node20',
     outDir: 'dist/bin',
     clean: true,
     splitting: false,
@@ -39,7 +39,7 @@ export default defineConfig([
       'src/analyzers/index.ts',
     ],
     format: ['esm'],
-    target: 'node18',
+    target: 'node20',
     outDir: 'dist',
     dts: true,
     splitting: false,
