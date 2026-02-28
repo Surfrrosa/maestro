@@ -12,5 +12,5 @@ jobs:
       - run: npm run build
       - run: npm test
       - run: npx maestro audit --ci 60
-      - run: npx maestro quality --ci C
+      - run: npx maestro quality --ci D
       - run: npx maestro security --ci
