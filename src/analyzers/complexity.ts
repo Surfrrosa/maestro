@@ -153,6 +153,26 @@ function analyzeFunctionLengths(content: string, file: string, stack: string, ma
   return findings;
 }
 
+// Classify whether a { opens a control flow block or an object literal.
+// Looks at the text to the left of the brace on the same line.
+function isControlFlowBrace(line: string, braceIndex: number): boolean {
+  const left = line.substring(0, braceIndex).trimEnd();
+  if (left.length === 0) return false;
+
+  const lastChar = left[left.length - 1];
+
+  // Closing paren: if/for/while/switch/catch/function params
+  if (lastChar === ')') return true;
+
+  // Arrow function body: =>
+  if (left.length >= 2 && left[left.length - 2] === '=' && lastChar === '>') return true;
+
+  // Bare keywords: else, try, finally, do, catch
+  if (/(?:^|[^a-zA-Z0-9_$])(else|try|finally|do|catch)\s*$/.test(left)) return true;
+
+  return false;
+}
+
 function analyzeNestingDepth(content: string, file: string, stack: string, maxNesting: number): QualityFinding[] {
   const findings: QualityFinding[] = [];
   const lines = content.split('\n');
@@ -204,8 +224,9 @@ function analyzeNestingDepth(content: string, file: string, stack: string, maxNe
       });
     }
   } else {
-    // TS/JS: count brace depth. Report once when depth first exceeds threshold.
-    let depth = 0;
+    // TS/JS: count control-flow brace depth only. Object literals are excluded.
+    const braceStack: boolean[] = [];
+    let controlDepth = 0;
     let inString = false;
     let stringChar = '';
     let inDeepBlock = false;
@@ -214,7 +235,7 @@ function analyzeNestingDepth(content: string, file: string, stack: string, maxNe
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      let lineMaxDepth = depth;
+      let lineMaxDepth = controlDepth;
 
       for (let j = 0; j < line.length; j++) {
         const ch = line[j];
@@ -229,10 +250,17 @@ function analyzeNestingDepth(content: string, file: string, stack: string, maxNe
         }
         if (ch === '/' && line[j + 1] === '/') break;
         if (ch === '{') {
-          depth++;
-          if (depth > lineMaxDepth) lineMaxDepth = depth;
+          const isControl = isControlFlowBrace(line, j);
+          braceStack.push(isControl);
+          if (isControl) {
+            controlDepth++;
+            if (controlDepth > lineMaxDepth) lineMaxDepth = controlDepth;
+          }
         }
-        if (ch === '}') depth--;
+        if (ch === '}') {
+          const wasControl = braceStack.pop();
+          if (wasControl) controlDepth--;
+        }
       }
 
       if (lineMaxDepth > maxNesting) {

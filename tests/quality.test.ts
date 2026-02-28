@@ -62,6 +62,88 @@ function deep() {
     const findings = analyzeComplexity(ctx);
     expect(findings.some(f => f.rule === 'nesting-depth')).toBe(true);
   });
+
+  it('does not flag object literals as nesting depth', () => {
+    const code = `
+function setup() {
+  const config: Record<string, string> = {
+    'src/api': 'API routes and handlers',
+    'src/commands': 'CLI commands',
+    'src/components': 'React components',
+    'src/lib': 'Shared utilities',
+  };
+  return config;
+}`;
+    const ctx = makeContext({ 'src/config.ts': code });
+    const findings = analyzeComplexity(ctx);
+    expect(findings.filter(f => f.rule === 'nesting-depth')).toHaveLength(0);
+  });
+
+  it('does not flag nested object literals in function calls', () => {
+    const code = `
+describe('test', () => {
+  it('works', () => {
+    setupProject({
+      'package.json': JSON.stringify({
+        dependencies: {
+          chalk: '5.3.0',
+        },
+      }),
+    });
+  });
+});`;
+    const ctx = makeContext({ 'tests/example.test.ts': code });
+    const findings = analyzeComplexity(ctx);
+    expect(findings.filter(f => f.rule === 'nesting-depth')).toHaveLength(0);
+  });
+
+  it('flags deeply nested control flow', () => {
+    const code = `
+function scan(files: string[]) {
+  for (const file of files) {
+    try {
+      for (let i = 0; i < 100; i++) {
+        for (const pattern of patterns) {
+          if (pattern.test(line)) {
+            console.log('deep');
+          }
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+}`;
+    const ctx = makeContext({ 'src/scanner.ts': code });
+    const findings = analyzeComplexity(ctx);
+    const nestFindings = findings.filter(f => f.rule === 'nesting-depth');
+    expect(nestFindings.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('counts only control flow depth in mixed code', () => {
+    const code = `
+function process() {
+  for (const item of items) {
+    if (item.active) {
+      if (item.type === 'special') {
+        if (item.value > 10) {
+          results.push({
+            name: item.name,
+            details: {
+              score: item.value,
+            },
+          });
+        }
+      }
+    }
+  }
+}`;
+    const ctx = makeContext({ 'src/process.ts': code });
+    const findings = analyzeComplexity(ctx);
+    // Control depth: function(1) + for(2) + if(3) + if(4) + if(5) = 5 > maxNesting(4)
+    // The push({ ... }) object literals should NOT add depth
+    expect(findings.some(f => f.rule === 'nesting-depth')).toBe(true);
+  });
 });
 
 describe('hygiene analyzer', () => {
