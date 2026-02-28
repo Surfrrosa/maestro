@@ -9,6 +9,7 @@ jobs:
         with:
           node-version: '18'
       - run: npm ci
+      - run: npm run build
       - run: npm test
       - run: npx maestro audit --ci 60
       - run: npx maestro quality --ci C
