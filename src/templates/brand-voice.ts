@@ -8,31 +8,12 @@ interface VoiceOptions {
   frameworks: string;
 }
 
-export function generateBrandVoice(options: VoiceOptions): string {
-  const toneSection = options.toneAdjectives.map(adj =>
+function generateToneSection(options: VoiceOptions): string {
+  const toneItems = options.toneAdjectives.map(adj =>
     `- **${adj}**: (describe what this means in practice -- what you DO and DON'T say)`
   ).join('\n');
 
-  const bannedTable = options.bannedPhrases.map(phrase =>
-    `| ${phrase} | (why it's banned) | (what to say instead) |`
-  ).join('\n');
-
-  const rulesSection = options.formattingRules.map(rule =>
-    `- ${rule}`
-  ).join('\n');
-
-  const frameworksSection = options.frameworks
-    ? `## Intellectual Foundations
-
-${options.frameworks}
-
-These frameworks inform the substance of what we write. Reference them internally but don't lecture about them.
-`
-    : '';
-
-  return `# Brand Voice
-
-## Audience
+  return `## Audience
 
 ${options.audience}
 
@@ -44,9 +25,19 @@ ${options.audience}
 
 ## Tone Attributes
 
-${toneSection}
+${toneItems}`;
+}
 
-## Hard Rules
+function generateHardRulesSection(options: VoiceOptions): string {
+  const rulesSection = options.formattingRules.map(rule =>
+    `- ${rule}`
+  ).join('\n');
+
+  const bannedTable = options.bannedPhrases.map(phrase =>
+    `| ${phrase} | (why it's banned) | (what to say instead) |`
+  ).join('\n');
+
+  return `## Hard Rules
 
 ${rulesSection}
 
@@ -54,10 +45,28 @@ ${rulesSection}
 
 | Phrase | Reason | Use Instead |
 |--------|--------|-------------|
-${bannedTable}
+${bannedTable}`;
+}
 
-${frameworksSection}
-## Context-Specific Guidance
+function generateFrameworkSection(options: VoiceOptions): string {
+  if (!options.frameworks) return '';
+
+  return `## Intellectual Foundations
+
+${options.frameworks}
+
+These frameworks inform the substance of what we write. Reference them internally but don't lecture about them.
+`;
+}
+
+export function generateBrandVoice(options: VoiceOptions): string {
+  return `# Brand Voice
+
+${generateToneSection(options)}
+
+${generateHardRulesSection(options)}
+
+${generateFrameworkSection(options)}## Context-Specific Guidance
 
 ### Website Copy
 (how the voice adapts for website pages)

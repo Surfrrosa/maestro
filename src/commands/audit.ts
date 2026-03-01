@@ -2,353 +2,13 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { join, basename } from 'node:path';
 import { existsSync, readdirSync } from 'node:fs';
-import { PASS, FAIL, header, info, scoreBar, section, SYM, palette, hint, successBanner, divider } from '../utils/format.js';
-import { fileExists, readFile, writeFile, ensureDir, detectStack, today, copyToClipboard } from '../utils/fs.js';
-import { generateClaudeMd } from '../templates/claude-md.js';
-import { generateSessionIndex } from '../templates/session-index.js';
-import { generateSessionLog } from '../templates/session-log.js';
-import { runSecurityScan } from './security.js';
+import { PASS, FAIL, header, info, scoreBar, section, SYM, palette, hint, successBanner } from '../utils/format.js';
+import { copyToClipboard } from '../utils/fs.js';
+import { runAuditChecks, type AuditCheck } from './audit-checks.js';
+import { applyFixes } from './audit-fixer.js';
 
-export interface AuditCheck {
-  name: string;
-  passed: boolean;
-  detail: string;
-  fixable: boolean;
-  weight: number;
-}
-
-function checkClaudeMdExists(cwd: string): AuditCheck {
-  const exists = fileExists(join(cwd, 'CLAUDE.md'));
-  return {
-    name: 'CLAUDE.md exists',
-    passed: exists,
-    detail: exists ? '' : 'No CLAUDE.md found. AI sessions lack project context.',
-    fixable: true,
-    weight: 15,
-  };
-}
-
-function checkClaudeMdQuality(cwd: string): AuditCheck {
-  const path = join(cwd, 'CLAUDE.md');
-  if (!fileExists(path)) {
-    return { name: 'CLAUDE.md has content', passed: false, detail: 'File missing.', fixable: true, weight: 10 };
-  }
-  const content = readFile(path);
-  const lower = content.toLowerCase();
-  const requiredSections = ['session', 'running', 'key files'];
-  const missingSections = requiredSections.filter(s => !lower.includes(s));
-
-  // Check for actual content depth (not just headers with TODOs)
-  const lines = content.split('\n').filter(l => l.trim() && !l.startsWith('#') && !l.startsWith('<!--') && !l.startsWith('|--'));
-  const hasSubstance = lines.length > 10;
-
-  if (missingSections.length > 0) {
-    return {
-      name: 'CLAUDE.md has content',
-      passed: false,
-      detail: `Missing sections: ${missingSections.join(', ')}`,
-      fixable: false,
-      weight: 10,
-    };
-  }
-
-  if (!hasSubstance) {
-    return {
-      name: 'CLAUDE.md has content',
-      passed: false,
-      detail: 'CLAUDE.md has headers but minimal content. Run maestro scan to populate it.',
-      fixable: false,
-      weight: 10,
-    };
-  }
-
-  return { name: 'CLAUDE.md has content', passed: true, detail: '', fixable: false, weight: 10 };
-}
-
-function checkSessionLogs(cwd: string): AuditCheck {
-  const dir = join(cwd, 'docs', 'sessions');
-  if (!existsSync(dir)) {
-    return { name: 'Session logs present', passed: false, detail: 'No docs/sessions/ directory.', fixable: true, weight: 10 };
-  }
-  const logs = readdirSync(dir).filter(f => f.match(/^\d{4}-\d{2}-\d{2}/) && f.endsWith('.md'));
-  return {
-    name: 'Session logs present',
-    passed: logs.length > 0,
-    detail: logs.length > 0 ? `${logs.length} log(s)` : 'Directory exists but no session logs found.',
-    fixable: true,
-    weight: 10,
-  };
-}
-
-function checkSessionIndex(cwd: string): AuditCheck {
-  const exists = fileExists(join(cwd, 'docs', 'sessions', 'README.md'));
-  return {
-    name: 'Session index maintained',
-    passed: exists,
-    detail: exists ? '' : 'No docs/sessions/README.md index.',
-    fixable: true,
-    weight: 5,
-  };
-}
-
-function checkEnvSafety(cwd: string): AuditCheck {
-  const hasEnv = fileExists(join(cwd, '.env'));
-  const hasExample = fileExists(join(cwd, '.env.example'));
-
-  if (!hasEnv) {
-    return { name: '.env safety', passed: true, detail: 'No .env file present.', fixable: false, weight: 10 };
-  }
-
-  const gitignorePath = join(cwd, '.gitignore');
-  if (fileExists(gitignorePath)) {
-    const gitignore = readFile(gitignorePath);
-    const envIgnored = gitignore.split('\n').some(line => {
-      const trimmed = line.trim();
-      return trimmed === '.env' || trimmed === '.env*' || trimmed === '.env.*';
-    });
-    if (!envIgnored) {
-      return { name: '.env safety', passed: false, detail: '.env exists but is not in .gitignore.', fixable: false, weight: 10 };
-    }
-  }
-
-  if (!hasExample) {
-    return { name: '.env safety', passed: false, detail: '.env exists but no .env.example template.', fixable: true, weight: 10 };
-  }
-
-  return { name: '.env safety', passed: true, detail: '', fixable: false, weight: 10 };
-}
-
-function checkGitignore(cwd: string): AuditCheck {
-  const exists = fileExists(join(cwd, '.gitignore'));
-  if (!exists) {
-    return { name: '.gitignore exists', passed: false, detail: 'No .gitignore file.', fixable: false, weight: 5 };
-  }
-  const content = readFile(join(cwd, '.gitignore'));
-  const stack = detectStack(cwd);
-  const missing: string[] = [];
-
-  if (stack === 'node' && !content.includes('node_modules')) missing.push('node_modules');
-  if (stack === 'python' && !content.includes('__pycache__')) missing.push('__pycache__');
-  if (!content.includes('.DS_Store')) missing.push('.DS_Store');
-
-  return {
-    name: '.gitignore comprehensive',
-    passed: missing.length === 0,
-    detail: missing.length > 0 ? `Missing: ${missing.join(', ')}` : '',
-    fixable: false,
-    weight: 5,
-  };
-}
-
-function checkDependencyPinning(cwd: string): AuditCheck {
-  const pkgPath = join(cwd, 'package.json');
-  if (fileExists(pkgPath)) {
-    try {
-      const pkg = JSON.parse(readFile(pkgPath));
-      const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-      const unpinned = Object.entries(deps).filter(
-        ([, v]) => typeof v === 'string' && (v.startsWith('^') || v.startsWith('~'))
-      );
-      if (unpinned.length > 0) {
-        return {
-          name: 'Dependency pinning',
-          passed: false,
-          detail: `${unpinned.length} unpinned package(s): ${unpinned.slice(0, 3).map(([k]) => k).join(', ')}${unpinned.length > 3 ? '...' : ''}`,
-          fixable: false,
-          weight: 10,
-        };
-      }
-    } catch {
-      return { name: 'Dependency pinning', passed: false, detail: 'Could not parse package.json.', fixable: false, weight: 10 };
-    }
-  }
-
-  const reqPath = join(cwd, 'requirements.txt');
-  if (fileExists(reqPath)) {
-    const content = readFile(reqPath);
-    const lines = content.split('\n').filter(l => l.trim() && !l.startsWith('#'));
-    const unpinned = lines.filter(l => !l.includes('=='));
-    if (unpinned.length > 0) {
-      return {
-        name: 'Dependency pinning',
-        passed: false,
-        detail: `${unpinned.length} unpinned package(s): ${unpinned.slice(0, 3).map(l => l.split(/[>=<]/)[0]).join(', ')}${unpinned.length > 3 ? '...' : ''}`,
-        fixable: false,
-        weight: 10,
-      };
-    }
-  }
-
-  if (!fileExists(pkgPath) && !fileExists(reqPath)) {
-    return { name: 'Dependency pinning', passed: true, detail: 'No dependency file found.', fixable: false, weight: 10 };
-  }
-
-  return { name: 'Dependency pinning', passed: true, detail: '', fixable: false, weight: 10 };
-}
-
-function checkReadme(cwd: string): AuditCheck {
-  const exists = fileExists(join(cwd, 'README.md'));
-  return {
-    name: 'README exists',
-    passed: exists,
-    detail: exists ? '' : 'No README.md.',
-    fixable: false,
-    weight: 5,
-  };
-}
-
-function checkArchitecture(cwd: string): AuditCheck {
-  const paths = [
-    join(cwd, 'docs', 'ARCHITECTURE.md'),
-    join(cwd, 'docs', 'architecture.md'),
-    join(cwd, 'ARCHITECTURE.md'),
-  ];
-  const exists = paths.some(p => fileExists(p));
-  return {
-    name: 'Architecture documented',
-    passed: exists,
-    detail: exists ? '' : 'No architecture document found.',
-    fixable: false,
-    weight: 10,
-  };
-}
-
-function checkSecurity(cwd: string): AuditCheck {
-  const paths = [
-    join(cwd, 'docs', 'SECURITY_CHECKLIST.md'),
-    join(cwd, 'docs', 'SECURITY.md'),
-    join(cwd, 'docs', 'security.md'),
-    join(cwd, 'SECURITY.md'),
-  ];
-  const exists = paths.some(p => fileExists(p));
-  return {
-    name: 'Security checklist present',
-    passed: exists,
-    detail: exists ? '' : 'No security checklist found.',
-    fixable: false,
-    weight: 10,
-  };
-}
-
-async function checkSecrets(cwd: string): Promise<AuditCheck> {
-  try {
-    const findings = await runSecurityScan(cwd);
-    const secrets = findings.filter(f => f.category === 'secrets');
-    if (secrets.length > 0) {
-      const locations = secrets.slice(0, 3).map(f => f.file).filter(Boolean);
-      const detail = `${secrets.length} potential secret(s) found${locations.length > 0 ? ` in ${locations.join(', ')}` : ''}.`;
-      return { name: 'No tracked secrets', passed: false, detail, fixable: false, weight: 5 };
-    }
-  } catch {
-    return { name: 'No tracked secrets', passed: true, detail: 'Could not scan files.', fixable: false, weight: 5 };
-  }
-
-  return { name: 'No tracked secrets', passed: true, detail: '', fixable: false, weight: 5 };
-}
-
-function checkTests(cwd: string): AuditCheck {
-  const dirs = ['tests', '__tests__', 'test', 'spec'];
-  const hasDirs = dirs.some(d => existsSync(join(cwd, d)));
-
-  if (hasDirs) {
-    return { name: 'Tests present', passed: true, detail: '', fixable: false, weight: 5 };
-  }
-
-  try {
-    const srcDir = join(cwd, 'src');
-    if (existsSync(srcDir)) {
-      const testFiles = readdirSync(srcDir, { recursive: true })
-        .filter(f => typeof f === 'string' && (f.includes('.test.') || f.includes('.spec.')));
-      if (testFiles.length > 0) {
-        return { name: 'Tests present', passed: true, detail: `${testFiles.length} test file(s) in src/`, fixable: false, weight: 5 };
-      }
-    }
-  } catch {
-    // src doesn't exist
-  }
-
-  return { name: 'Tests present', passed: false, detail: 'No test directory or test files found.', fixable: false, weight: 5 };
-}
-
-function applyFixes(cwd: string, checks: AuditCheck[]): void {
-  const projectName = cwd.split('/').pop() || 'project';
-
-  for (const check of checks) {
-    if (check.passed || !check.fixable) continue;
-
-    switch (check.name) {
-      case 'CLAUDE.md exists':
-      case 'CLAUDE.md has content': {
-        if (!fileExists(join(cwd, 'CLAUDE.md'))) {
-          const stack = detectStack(cwd);
-          const projectType = stack === 'python' ? 'api-python' : stack === 'node' ? 'api-node' : 'cli-tool';
-          writeFile(join(cwd, 'CLAUDE.md'), generateClaudeMd({
-            projectName,
-            projectType,
-            description: '(TODO: add project description)',
-            deployTarget: 'local',
-            aiProvider: 'none',
-            database: 'none',
-          }));
-          console.log(`  ${SYM.plus} Generated CLAUDE.md (run maestro scan for a populated version)`);
-        }
-        break;
-      }
-      case 'Session logs present': {
-        const date = today();
-        ensureDir(join(cwd, 'docs', 'sessions'));
-        writeFile(join(cwd, 'docs', 'sessions', `${date}_session.md`), generateSessionLog(date));
-        console.log(`  ${SYM.plus} Created docs/sessions/${date}_session.md`);
-        break;
-      }
-      case 'Session index maintained':
-        ensureDir(join(cwd, 'docs', 'sessions'));
-        writeFile(join(cwd, 'docs', 'sessions', 'README.md'), generateSessionIndex(projectName));
-        console.log(`  ${SYM.plus} Created docs/sessions/README.md`);
-        break;
-      case '.env safety': {
-        if (fileExists(join(cwd, '.env')) && !fileExists(join(cwd, '.env.example'))) {
-          const envContent = readFile(join(cwd, '.env'));
-          const sanitized = envContent
-            .split('\n')
-            .map(line => {
-              if (line.startsWith('#') || !line.includes('=')) return line;
-              const eqIndex = line.indexOf('=');
-              const key = line.substring(0, eqIndex);
-              return `${key}=your_value_here`;
-            })
-            .join('\n');
-          writeFile(join(cwd, '.env.example'), sanitized);
-          console.log(`  ${SYM.plus} Generated .env.example from .env (values replaced with placeholders)`);
-        }
-        break;
-      }
-    }
-  }
-}
-
-export async function runAuditChecks(cwd: string): Promise<{ checks: AuditCheck[]; score: number; totalWeight: number }> {
-  const checks: AuditCheck[] = [
-    checkClaudeMdExists(cwd),
-    checkClaudeMdQuality(cwd),
-    checkSessionLogs(cwd),
-    checkSessionIndex(cwd),
-    checkEnvSafety(cwd),
-    checkGitignore(cwd),
-    checkDependencyPinning(cwd),
-    checkReadme(cwd),
-    checkArchitecture(cwd),
-    checkSecurity(cwd),
-    await checkSecrets(cwd),
-    checkTests(cwd),
-  ];
-
-  const totalWeight = checks.reduce((sum, c) => sum + c.weight, 0);
-  const earnedWeight = checks.filter(c => c.passed).reduce((sum, c) => sum + c.weight, 0);
-  const score = Math.round((earnedWeight / totalWeight) * 100);
-
-  return { checks, score, totalWeight };
-}
+export { runAuditChecks, type AuditCheck } from './audit-checks.js';
+export { applyFixes } from './audit-fixer.js';
 
 export function generateBadge(score: number): string {
   const color = score >= 80 ? 'brightgreen' : score >= 60 ? 'yellow' : score >= 40 ? 'orange' : 'red';
@@ -382,62 +42,81 @@ export const auditCommand = new Command('audit')
       console.log(`  ${icon}  ${check.name} ${weight}${detail}`);
     }
 
-    const failed = checks.filter(c => !c.passed);
-    if (failed.length > 0) {
-      console.log(section('Recommendations'));
-      for (const check of failed) {
-        if (check.detail) {
-          console.log(`  ${SYM.arrow} ${check.detail}`);
-        }
-      }
-    }
-
-    if (options.clipboard && failed.length > 0) {
-      const clipText = [
-        `Maestro Audit - ${projectName} (${score}/100)`,
-        '',
-        'Fix these issues:',
-        ...failed.filter(c => c.detail).map(c => `- ${c.name}: ${c.detail}`),
-      ].join('\n');
-      if (copyToClipboard(clipText)) {
-        console.log(successBanner('Findings copied to clipboard. Paste into Claude Code to fix.'));
-      }
-    }
-
-    if (options.fix) {
-      const fixable = checks.filter(c => !c.passed && c.fixable);
-      if (fixable.length > 0) {
-        console.log(section('Applying fixes'));
-        applyFixes(cwd, checks);
-        console.log(hint('maestro audit'));
-      } else {
-        console.log(chalk.dim('\n  No auto-fixable issues found.\n'));
-      }
-    } else if (!options.clipboard) {
-      const fixable = checks.filter(c => !c.passed && c.fixable);
-      if (fixable.length > 0) {
-        console.log(hint('maestro audit --fix'));
-      } else if (failed.length > 0) {
-        console.log(hint('maestro audit --clipboard to copy for Claude Code'));
-      } else {
-        console.log(hint('maestro quality'));
-      }
-    }
-
-    // CI mode: exit with error if below threshold
-    if (options.ci !== undefined) {
-      if (score < options.ci) {
-        console.log(chalk.red(`\n  CI FAIL: Score ${score} is below threshold ${options.ci}\n`));
-        process.exit(1);
-      } else {
-        console.log(chalk.green(`\n  CI PASS: Score ${score} meets threshold ${options.ci}\n`));
-      }
-    }
+    renderRecommendations(checks);
+    handleClipboard(options, checks, projectName, score);
+    handleFix(options, cwd, checks);
+    handleCi(options, score);
 
     console.log('');
   });
 
-// audit-all command
+function renderRecommendations(checks: AuditCheck[]): void {
+  const failed = checks.filter(c => !c.passed);
+  if (failed.length === 0) return;
+  console.log(section('Recommendations'));
+  for (const check of failed) {
+    if (check.detail) {
+      console.log(`  ${SYM.arrow} ${check.detail}`);
+    }
+  }
+}
+
+function handleClipboard(
+  options: { clipboard?: boolean },
+  checks: AuditCheck[],
+  projectName: string,
+  score: number,
+): void {
+  const failed = checks.filter(c => !c.passed);
+  if (!options.clipboard || failed.length === 0) return;
+  const clipText = [
+    `Maestro Audit - ${projectName} (${score}/100)`,
+    '',
+    'Fix these issues:',
+    ...failed.filter(c => c.detail).map(c => `- ${c.name}: ${c.detail}`),
+  ].join('\n');
+  if (copyToClipboard(clipText)) {
+    console.log(successBanner('Findings copied to clipboard. Paste into Claude Code to fix.'));
+  }
+}
+
+function handleFix(
+  options: { fix?: boolean; clipboard?: boolean },
+  cwd: string,
+  checks: AuditCheck[],
+): void {
+  const failed = checks.filter(c => !c.passed);
+  if (options.fix) {
+    const fixable = checks.filter(c => !c.passed && c.fixable);
+    if (fixable.length > 0) {
+      console.log(section('Applying fixes'));
+      applyFixes(cwd, checks);
+      console.log(hint('maestro audit'));
+    } else {
+      console.log(chalk.dim('\n  No auto-fixable issues found.\n'));
+    }
+  } else if (!options.clipboard) {
+    const fixable = checks.filter(c => !c.passed && c.fixable);
+    if (fixable.length > 0) {
+      console.log(hint('maestro audit --fix'));
+    } else if (failed.length > 0) {
+      console.log(hint('maestro audit --clipboard to copy for Claude Code'));
+    } else {
+      console.log(hint('maestro quality'));
+    }
+  }
+}
+
+function handleCi(options: { ci?: number }, score: number): void {
+  if (options.ci === undefined) return;
+  if (score < options.ci) {
+    console.log(chalk.red(`\n  CI FAIL: Score ${score} is below threshold ${options.ci}\n`));
+    process.exit(1);
+  } else {
+    console.log(chalk.green(`\n  CI PASS: Score ${score} meets threshold ${options.ci}\n`));
+  }
+}
+
 export const auditAllCommand = new Command('audit-all')
   .description('Audit all repos in a directory')
   .argument('<directory>', 'Directory containing repos to audit')
@@ -464,44 +143,55 @@ export const auditAllCommand = new Command('audit-all')
       return;
     }
 
-    const results: Array<{ name: string; score: number }> = [];
-
-    for (const repo of repos) {
-      const repoPath = join(targetDir, repo);
-      try {
-        const { score } = await runAuditChecks(repoPath);
-        results.push({ name: repo, score });
-      } catch {
-        results.push({ name: repo, score: -1 });
-      }
-    }
-
-    // Sort
-    if (options.sort === 'name') {
-      results.sort((a, b) => a.name.localeCompare(b.name));
-    } else {
-      results.sort((a, b) => b.score - a.score);
-    }
-
-    // Output table
-    const maxNameLen = Math.max(...results.map(r => r.name.length), 10);
-    const header_line = `  ${'Repository'.padEnd(maxNameLen)}  Score`;
-    const divider_line = `  ${'-'.repeat(maxNameLen)}  -----`;
-    console.log(chalk.bold(header_line));
-    console.log(chalk.dim(divider_line));
-
-    for (const r of results) {
-      const scoreColor = r.score >= 80 ? chalk.hex(palette.PASS_C) : r.score >= 60 ? chalk.hex(palette.WARN_C) : r.score >= 40 ? chalk.hex(palette.SCORE_D) : chalk.hex(palette.FAIL_C);
-      const scoreStr = r.score >= 0 ? scoreColor.bold(`${r.score}/100`) : chalk.dim('error');
-      console.log(`  ${r.name.padEnd(maxNameLen)}  ${scoreStr}`);
-    }
-
-    const avg = results.filter(r => r.score >= 0);
-    if (avg.length > 0) {
-      const avgScore = Math.round(avg.reduce((s, r) => s + r.score, 0) / avg.length);
-      console.log(chalk.dim(divider_line));
-      console.log(`  ${'Average'.padEnd(maxNameLen)}  ${chalk.bold(`${avgScore}/100`)}`);
-    }
-
-    console.log(`\n  ${chalk.dim(`${repos.length} repos scanned.`)}\n`);
+    const results = await collectRepoScores(targetDir, repos);
+    sortResults(results, options.sort);
+    renderResultsTable(results, repos.length);
   });
+
+async function collectRepoScores(
+  targetDir: string,
+  repos: string[],
+): Promise<Array<{ name: string; score: number }>> {
+  const results: Array<{ name: string; score: number }> = [];
+  for (const repo of repos) {
+    const repoPath = join(targetDir, repo);
+    try {
+      const { score } = await runAuditChecks(repoPath);
+      results.push({ name: repo, score });
+    } catch {
+      results.push({ name: repo, score: -1 });
+    }
+  }
+  return results;
+}
+
+function sortResults(results: Array<{ name: string; score: number }>, sort: string): void {
+  if (sort === 'name') {
+    results.sort((a, b) => a.name.localeCompare(b.name));
+  } else {
+    results.sort((a, b) => b.score - a.score);
+  }
+}
+
+function renderResultsTable(results: Array<{ name: string; score: number }>, repoCount: number): void {
+  const maxNameLen = Math.max(...results.map(r => r.name.length), 10);
+  const headerLine = `  ${'Repository'.padEnd(maxNameLen)}  Score`;
+  const dividerLine = `  ${'-'.repeat(maxNameLen)}  -----`;
+  console.log(chalk.bold(headerLine));
+  console.log(chalk.dim(dividerLine));
+
+  for (const r of results) {
+    const scoreColor = r.score >= 80 ? chalk.hex(palette.PASS_C) : r.score >= 60 ? chalk.hex(palette.WARN_C) : r.score >= 40 ? chalk.hex(palette.SCORE_D) : chalk.hex(palette.FAIL_C);
+    const scoreStr = r.score >= 0 ? scoreColor.bold(`${r.score}/100`) : chalk.dim('error');
+    console.log(`  ${r.name.padEnd(maxNameLen)}  ${scoreStr}`);
+  }
+
+  const avg = results.filter(r => r.score >= 0);
+  if (avg.length > 0) {
+    const avgScore = Math.round(avg.reduce((s, r) => s + r.score, 0) / avg.length);
+    console.log(chalk.dim(dividerLine));
+    console.log(`  ${'Average'.padEnd(maxNameLen)}  ${chalk.bold(`${avgScore}/100`)}`);
+  }
+
+  console.log(`\n  ${chalk.dim(`${repoCount} repos scanned.`)}\n`);
+}

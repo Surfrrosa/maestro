@@ -143,9 +143,23 @@ function getSecurityType(projectType: ProjectType): string {
   return 'default';
 }
 
-export function generateClaudeMd(options: ClaudeMdOptions): string {
-  const secType = getSecurityType(options.projectType);
+function generateCspSection(projectType: ProjectType): string {
+  const secType = getSecurityType(projectType);
+  return securitySection[secType];
+}
 
+function generateDependencySection(): string {
+  return `## Dependencies
+
+All dependencies must be pinned to exact versions. No \`^\` or \`~\` prefixes.
+
+When adding a dependency:
+1. Verify it's necessary (don't add libraries for one-time operations)
+2. Pin the exact version
+3. Document why it was added if non-obvious`;
+}
+
+export function generateClaudeMd(options: ClaudeMdOptions): string {
   return `# ${options.projectName}
 
 ${options.description}
@@ -185,15 +199,8 @@ ${runCommands[options.projectType]}
 <!-- Files affected: src/pages/*.html -->
 <!-- Estimated effort: 4-6 hours -->
 
-## Dependencies
+${generateDependencySection()}
 
-All dependencies must be pinned to exact versions. No \`^\` or \`~\` prefixes.
-
-When adding a dependency:
-1. Verify it's necessary (don't add libraries for one-time operations)
-2. Pin the exact version
-3. Document why it was added if non-obvious
-
-${securitySection[secType]}
+${generateCspSection(options.projectType)}
 `;
 }

@@ -11,7 +11,6 @@ interface ImportGraph {
 }
 
 const RESOLUTION_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '/index.ts', '/index.js', '/index.tsx', '/index.jsx'];
-// ESM projects often import with .js extension but actual files are .ts
 const EXTENSION_REMAP: Record<string, string[]> = {
   '.js': ['.ts', '.tsx', '.js', '.jsx'],
   '.jsx': ['.tsx', '.jsx'],
@@ -19,7 +18,6 @@ const EXTENSION_REMAP: Record<string, string[]> = {
 };
 
 function resolveImport(importPath: string, fromFile: string, ctx: AnalyzerContext): string | null {
-  // Resolve path aliases (e.g. @/components/Sidebar -> src/components/Sidebar)
   let aliasResolved = false;
   for (const [prefix, target] of ctx.pathAliases) {
     if (importPath.startsWith(prefix)) {
@@ -29,16 +27,14 @@ function resolveImport(importPath: string, fromFile: string, ctx: AnalyzerContex
     }
   }
 
-  if (!importPath.startsWith('.') && !aliasResolved) return null; // Skip package imports
+  if (!importPath.startsWith('.') && !aliasResolved) return null;
 
   const fromDir = aliasResolved ? '' : dirname(fromFile);
   const resolved = join(fromDir, importPath).replace(/\\/g, '/');
 
-  // Try exact match first
   const exactMatch = ctx.files.find(f => f.replace(/\\/g, '/') === resolved);
   if (exactMatch) return exactMatch;
 
-  // ESM remap: import './foo.js' should resolve to './foo.ts'
   const ext = '.' + (resolved.split('.').pop() || '');
   if (EXTENSION_REMAP[ext]) {
     const base = resolved.slice(0, -ext.length);
@@ -49,7 +45,6 @@ function resolveImport(importPath: string, fromFile: string, ctx: AnalyzerContex
     }
   }
 
-  // Try with extensions (extensionless imports)
   for (const tryExt of RESOLUTION_EXTENSIONS) {
     const candidate = resolved + tryExt;
     const match = ctx.files.find(f => f.replace(/\\/g, '/') === candidate);
@@ -72,101 +67,107 @@ function buildImportGraph(ctx: AnalyzerContext): ImportGraph {
     const content = getContent(ctx, file);
 
     if (ctx.stack === 'python') {
-      // Python imports
-      const patterns = [
-        /^from\s+(\.[\w.]*)\s+import\s+(.+)/gm,
-        /^import\s+(\.[\w.]+)/gm,
-      ];
-      for (const pattern of patterns) {
-        let match;
-        pattern.lastIndex = 0;
-        while ((match = pattern.exec(content)) !== null) {
-          const resolved = resolveImport(match[1].replace(/\./g, '/'), file, ctx);
-          if (resolved) {
-            imports.get(file)!.add(resolved);
-            if (!importedBy.has(resolved)) importedBy.set(resolved, new Set());
-            importedBy.get(resolved)!.add(file);
-          }
-        }
-      }
-
-      // Python exports (functions and classes at module level)
-      const exportPatterns = /^(?:def|class|async\s+def)\s+(\w+)/gm;
-      let expMatch;
-      while ((expMatch = exportPatterns.exec(content)) !== null) {
-        if (!expMatch[1].startsWith('_')) {
-          exports.get(file)!.add(expMatch[1]);
-        }
-      }
+      buildPythonImportGraph(content, file, { imports, importedBy, exports }, ctx);
     } else {
-      // TS/JS imports
-      const importPatterns = [
-        /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g,
-        /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
-        /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
-      ];
-      for (const pattern of importPatterns) {
-        let match;
-        pattern.lastIndex = 0;
-        while ((match = pattern.exec(content)) !== null) {
-          const resolved = resolveImport(match[1], file, ctx);
-          if (resolved) {
-            imports.get(file)!.add(resolved);
-            if (!importedBy.has(resolved)) importedBy.set(resolved, new Set());
-            importedBy.get(resolved)!.add(file);
-          }
-        }
-      }
-
-      // TS/JS exports
-      const exportPatterns = [
-        /export\s+(?:function|const|let|var|class|type|interface|enum)\s+(\w+)/g,
-        /export\s+default\s+(?:function|class)?\s*(\w+)?/g,
-        /export\s+\{([^}]+)\}/g,
-      ];
-      for (const pattern of exportPatterns) {
-        let match;
-        pattern.lastIndex = 0;
-        while ((match = pattern.exec(content)) !== null) {
-          if (match[1]) {
-            // For export { a, b, c } -- split by comma
-            if (pattern.source.includes('{')) {
-              const names = match[1].split(',').map(n => n.trim().split(/\s+as\s+/)[0].trim());
-              for (const name of names) {
-                if (name) exports.get(file)!.add(name);
-              }
-            } else {
-              exports.get(file)!.add(match[1]);
-            }
-          }
-        }
-      }
+      buildJsImportGraph(content, file, { imports, importedBy, exports }, ctx);
     }
   }
 
   return { imports, importedBy, exports };
 }
 
+function buildPythonImportGraph(content: string, file: string, graph: ImportGraph, ctx: AnalyzerContext): void {
+  const patterns = [
+    /^from\s+(\.[\w.]*)\s+import\s+(.+)/gm,
+    /^import\s+(\.[\w.]+)/gm,
+  ];
+  for (const pattern of patterns) {
+    let match;
+    pattern.lastIndex = 0;
+    while ((match = pattern.exec(content)) !== null) {
+      const resolved = resolveImport(match[1].replace(/\./g, '/'), file, ctx);
+      if (resolved) {
+        graph.imports.get(file)!.add(resolved);
+        if (!graph.importedBy.has(resolved)) graph.importedBy.set(resolved, new Set());
+        graph.importedBy.get(resolved)!.add(file);
+      }
+    }
+  }
+
+  const exportPatterns = /^(?:def|class|async\s+def)\s+(\w+)/gm;
+  let expMatch;
+  while ((expMatch = exportPatterns.exec(content)) !== null) {
+    if (!expMatch[1].startsWith('_')) {
+      graph.exports.get(file)!.add(expMatch[1]);
+    }
+  }
+}
+
+function buildJsImportGraph(content: string, file: string, graph: ImportGraph, ctx: AnalyzerContext): void {
+  const importPatterns = [
+    /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g,
+    /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+    /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+  ];
+  for (const pattern of importPatterns) {
+    let match;
+    pattern.lastIndex = 0;
+    while ((match = pattern.exec(content)) !== null) {
+      const resolved = resolveImport(match[1], file, ctx);
+      if (resolved) {
+        graph.imports.get(file)!.add(resolved);
+        if (!graph.importedBy.has(resolved)) graph.importedBy.set(resolved, new Set());
+        graph.importedBy.get(resolved)!.add(file);
+      }
+    }
+  }
+
+  extractJsExports(content, graph.exports.get(file)!);
+}
+
+function extractJsExports(content: string, exports: Set<string>): void {
+  const exportPatterns = [
+    /export\s+(?:function|const|let|var|class|type|interface|enum)\s+(\w+)/g,
+    /export\s+default\s+(?:function|class)?\s*(\w+)?/g,
+    /export\s+\{([^}]+)\}/g,
+  ];
+  for (const pattern of exportPatterns) {
+    let match;
+    pattern.lastIndex = 0;
+    while ((match = pattern.exec(content)) !== null) {
+      if (!match[1]) continue;
+      if (pattern.source.includes('{')) {
+        for (const name of match[1].split(',').map(n => n.trim().split(/\s+as\s+/)[0].trim())) {
+          if (name) exports.add(name);
+        }
+      } else {
+        exports.add(match[1]);
+      }
+    }
+  }
+}
+
+function isSkippableFile(file: string, ctx: AnalyzerContext): boolean {
+  const base = basename(file);
+  const isEntryPoint = /^(index|main|app|server|cli|maestro)\.(ts|js|tsx|jsx|py)$/.test(base);
+  const isTest = file.includes('.test.') || file.includes('.spec.') || file.includes('__tests__') || file.startsWith('tests/');
+  const isConfig = /\.(config|setup|d)\.(ts|js)$/.test(base) || base.startsWith('.') || /^(vite|vitest|jest|tsup|webpack|rollup|next|tailwind|postcss)/.test(base);
+  const isBin = file.startsWith('bin/');
+  const isCommand = file.includes('commands/');
+  const isTemplate = file.includes('templates/');
+  const isIgnored = ctx.config.quality.ignore.some(pattern => minimatch(file, pattern));
+
+  return isEntryPoint || isTest || isConfig || isBin || isCommand || isTemplate || isIgnored;
+}
+
 export function analyzeDeadCode(ctx: AnalyzerContext): QualityFinding[] {
   const findings: QualityFinding[] = [];
   const graph = buildImportGraph(ctx);
 
-  // Find unused files (never imported by anything)
   for (const file of ctx.files) {
     const importers = graph.importedBy.get(file);
     if (!importers || importers.size === 0) {
-      // Skip entry points and test files
-      const base = basename(file);
-      const isEntryPoint = /^(index|main|app|server|cli|maestro)\.(ts|js|tsx|jsx|py)$/.test(base);
-      const isTest = file.includes('.test.') || file.includes('.spec.') || file.includes('__tests__') || file.startsWith('tests/');
-      const isConfig = /\.(config|setup|d)\.(ts|js)$/.test(base) || base.startsWith('.') || /^(vite|vitest|jest|tsup|webpack|rollup|next|tailwind|postcss)/.test(base);
-      const isBin = file.startsWith('bin/');
-      const isCommand = file.includes('commands/');
-      const isTemplate = file.includes('templates/');
-
-      const isIgnored = ctx.config.quality.ignore.some(pattern => minimatch(file, pattern));
-
-      if (!isEntryPoint && !isTest && !isConfig && !isBin && !isCommand && !isTemplate && !isIgnored) {
+      if (!isSkippableFile(file, ctx)) {
         findings.push({
           rule: 'unused-file',
           category: 'dead-code',
@@ -182,5 +183,4 @@ export function analyzeDeadCode(ctx: AnalyzerContext): QualityFinding[] {
   return findings;
 }
 
-// Export for use by structure analyzer
 export { buildImportGraph, type ImportGraph };

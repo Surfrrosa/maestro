@@ -15,24 +15,26 @@ function hexToRgb(hex: string): string {
   return `${r}, ${g}, ${b}`;
 }
 
-export function generateDesignSystem(options: DesignSystemOptions): string {
-  const colorTable = options.colors.map(c =>
+function colorSlug(name: string): string {
+  return name.toLowerCase().replace(/\s+/g, '-');
+}
+
+function generateColorSection(colors: DesignSystemOptions['colors'], colorMode: string): string {
+  const modeText = colorMode === 'both' ? 'Dark and light modes supported.'
+    : colorMode === 'dark' ? 'Dark mode only.'
+    : 'Light mode only.';
+
+  const colorTable = colors.map(c =>
     `| ${c.name} | \`${c.hex}\` | \`${hexToRgb(c.hex)}\` | ${c.usage} |`
   ).join('\n');
 
-  const cssVars = options.colors.map(c =>
-    `  --color-${c.name.toLowerCase().replace(/\s+/g, '-')}: ${c.hex};`
+  const cssVars = colors.map(c =>
+    `  --color-${colorSlug(c.name)}: ${c.hex};`
   ).join('\n');
 
-  const principlesSection = options.principles.map(p =>
-    `### ${p}\n\n(describe what this principle means in practice and how it affects design decisions)\n`
-  ).join('\n');
+  return `## Color Mode
 
-  return `# ${options.brandName} - Design System
-
-## Color Mode
-
-${options.colorMode === 'both' ? 'Dark and light modes supported.' : options.colorMode === 'dark' ? 'Dark mode only.' : 'Light mode only.'}
+${modeText}
 
 ## Color Palette
 
@@ -46,25 +48,27 @@ ${colorTable}
 :root {
 ${cssVars}
 }
-\`\`\`
+\`\`\``;
+}
 
-## Typography
+function generateTypographySection(displayFont: string, bodyFont: string): string {
+  return `## Typography
 
 ### Display / Headlines
-**${options.displayFont}**
+**${displayFont}**
 
 \`\`\`css
 :root {
-  --font-display: '${options.displayFont}', serif;
+  --font-display: '${displayFont}', serif;
 }
 \`\`\`
 
 ### Body Text
-**${options.bodyFont}**
+**${bodyFont}**
 
 \`\`\`css
 :root {
-  --font-body: '${options.bodyFont}', sans-serif;
+  --font-body: '${bodyFont}', sans-serif;
 }
 \`\`\`
 
@@ -76,19 +80,34 @@ ${cssVars}
 | h2 | 2rem | 600 | Display | Section headers |
 | h3 | 1.5rem | 600 | Display | Subsection headers |
 | body | 1rem | 400 | Body | Paragraph text |
-| small | 0.875rem | 400 | Body | Captions, metadata |
+| small | 0.875rem | 400 | Body | Captions, metadata |`;
+}
 
-## Design Principles
+function generateSpacingSection(): string {
+  return `## Spacing Scale
 
-${principlesSection}
+| Token | Value | Usage |
+|-------|-------|-------|
+| --space-xs | 0.25rem | Tight gaps |
+| --space-sm | 0.5rem | Compact spacing |
+| --space-md | 1rem | Default spacing |
+| --space-lg | 1.5rem | Section padding |
+| --space-xl | 2rem | Major sections |
+| --space-2xl | 3rem | Page-level spacing |`;
+}
 
-## Component Patterns
+function generateComponentSection(colors: DesignSystemOptions['colors']): string {
+  const btnColor = colorSlug(colors[1]?.name || 'accent');
+  const cardBg = colorSlug(colors[0]?.name || 'background');
+  const borderColor = colorSlug(colors[2]?.name || 'border');
+
+  return `## Component Patterns
 
 ### Buttons
 
 \`\`\`css
 .btn-primary {
-  background: var(--color-${options.colors[1]?.name.toLowerCase().replace(/\s+/g, '-') || 'accent'});
+  background: var(--color-${btnColor});
   color: white;
   font-family: var(--font-body);
   padding: 0.75rem 1.5rem;
@@ -101,8 +120,8 @@ ${principlesSection}
 
 \`\`\`css
 .card {
-  background: var(--color-${options.colors[0]?.name.toLowerCase().replace(/\s+/g, '-') || 'background'});
-  border: 1px solid var(--color-${options.colors[2]?.name.toLowerCase().replace(/\s+/g, '-') || 'border'});
+  background: var(--color-${cardBg});
+  border: 1px solid var(--color-${borderColor});
   padding: 1.5rem;
 }
 \`\`\`
@@ -113,20 +132,29 @@ ${principlesSection}
 .input {
   font-family: var(--font-body);
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-${options.colors[2]?.name.toLowerCase().replace(/\s+/g, '-') || 'border'});
+  border: 1px solid var(--color-${borderColor});
   background: transparent;
 }
-\`\`\`
+\`\`\``;
+}
 
-## Spacing Scale
+export function generateDesignSystem(options: DesignSystemOptions): string {
+  const principlesSection = options.principles.map(p =>
+    `### ${p}\n\n(describe what this principle means in practice and how it affects design decisions)\n`
+  ).join('\n');
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| --space-xs | 0.25rem | Tight gaps |
-| --space-sm | 0.5rem | Compact spacing |
-| --space-md | 1rem | Default spacing |
-| --space-lg | 1.5rem | Section padding |
-| --space-xl | 2rem | Major sections |
-| --space-2xl | 3rem | Page-level spacing |
+  return `# ${options.brandName} - Design System
+
+${generateColorSection(options.colors, options.colorMode)}
+
+${generateTypographySection(options.displayFont, options.bodyFont)}
+
+## Design Principles
+
+${principlesSection}
+
+${generateComponentSection(options.colors)}
+
+${generateSpacingSection()}
 `;
 }

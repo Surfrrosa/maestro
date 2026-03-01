@@ -1,7 +1,7 @@
 import type { ProjectType } from './claude-md.js';
 
-export function generateSecurityChecklist(projectType: ProjectType): string {
-  const common = `## General
+function generateGeneralChecks(): string {
+  return `## General
 
 - [ ] No secrets committed to version control
 - [ ] .env files are gitignored (except .env.example)
@@ -9,8 +9,10 @@ export function generateSecurityChecklist(projectType: ProjectType): string {
 - [ ] Dependency versions pinned (no floating versions)
 - [ ] Error messages do not expose internal details to users
 `;
+}
 
-  const web = `## Web Security
+function generateWebSecurityChecks(): string {
+  return `## Web Security
 
 - [ ] Content Security Policy (CSP) headers configured
 - [ ] CORS restricted to allowed origins
@@ -27,8 +29,10 @@ export function generateSecurityChecklist(projectType: ProjectType): string {
 |---------|---------|------------|
 | (add as you integrate services) | | |
 `;
+}
 
-  const api = `## API Security
+function generateApiSecurityChecks(): string {
+  return `## API Security
 
 - [ ] Authentication on all protected endpoints
 - [ ] Rate limiting configured
@@ -39,8 +43,10 @@ export function generateSecurityChecklist(projectType: ProjectType): string {
 - [ ] API keys rotated on schedule
 - [ ] Logging does not capture sensitive data
 `;
+}
 
-  const mobile = `## Mobile Security
+function generateMobileSecurityChecks(): string {
+  return `## Mobile Security
 
 - [ ] API keys not hardcoded in app bundle
 - [ ] Certificate pinning configured
@@ -50,17 +56,19 @@ export function generateSecurityChecklist(projectType: ProjectType): string {
 - [ ] App transport security configured
 - [ ] No sensitive data in app logs
 `;
+}
 
-  const sections = [`# Security Checklist\n`, common];
+export function generateSecurityChecklist(projectType: ProjectType): string {
+  const sections = [`# Security Checklist\n`, generateGeneralChecks()];
 
   if (['api-python', 'api-node'].includes(projectType)) {
-    sections.push(api);
+    sections.push(generateApiSecurityChecks());
   }
   if (['frontend-next', 'frontend-static', 'api-python', 'api-node'].includes(projectType)) {
-    sections.push(web);
+    sections.push(generateWebSecurityChecks());
   }
   if (projectType === 'mobile-react-native') {
-    sections.push(mobile);
+    sections.push(generateMobileSecurityChecks());
   }
 
   sections.push(`## Audit Log

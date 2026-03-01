@@ -30,6 +30,8 @@ export default defineConfig([
       'src/analyzers/types.ts',
       'src/analyzers/context.ts',
       'src/analyzers/complexity.ts',
+      'src/analyzers/complexity-function-length.ts',
+      'src/analyzers/complexity-nesting.ts',
       'src/analyzers/dead-code.ts',
       'src/analyzers/structure.ts',
       'src/analyzers/hygiene.ts',
