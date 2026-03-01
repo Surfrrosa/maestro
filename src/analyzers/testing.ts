@@ -1,5 +1,6 @@
 import type { QualityFinding, AnalyzerContext } from './types.js';
-import { basename, dirname } from 'node:path';
+import { basename } from 'node:path';
+import { buildImportGraph } from './dead-code.js';
 
 function hasTestFile(srcFile: string, allFiles: string[]): boolean {
   const baseName = basename(srcFile).replace(/\.(ts|tsx|js|jsx|py)$/, '');
@@ -12,8 +13,22 @@ function hasTestFile(srcFile: string, allFiles: string[]): boolean {
   });
 }
 
-function findUntestedFiles(sourceFiles: string[], allFiles: string[]): string[] {
-  return sourceFiles.filter(f => !hasTestFile(f, allFiles));
+function findTestedByImport(ctx: AnalyzerContext, testFiles: Set<string>): Set<string> {
+  const graph = buildImportGraph(ctx);
+  const tested = new Set<string>();
+  for (const testFile of testFiles) {
+    const imports = graph.imports.get(testFile);
+    if (imports) {
+      for (const imp of imports) {
+        tested.add(imp);
+      }
+    }
+  }
+  return tested;
+}
+
+function findUntestedFiles(sourceFiles: string[], allFiles: string[], testedByImport: Set<string>): string[] {
+  return sourceFiles.filter(f => !hasTestFile(f, allFiles) && !testedByImport.has(f));
 }
 
 export function analyzeTesting(ctx: AnalyzerContext): QualityFinding[] {
@@ -22,7 +37,8 @@ export function analyzeTesting(ctx: AnalyzerContext): QualityFinding[] {
   const sourceFiles = buildSourceFileList(ctx.files, testFiles);
   if (sourceFiles.length === 0) return findings;
 
-  const untestedFiles = findUntestedFiles(sourceFiles, ctx.files);
+  const testedByImport = findTestedByImport(ctx, testFiles);
+  const untestedFiles = findUntestedFiles(sourceFiles, ctx.files, testedByImport);
 
   if (testFiles.size > 0 && untestedFiles.length > 0) {
     const coverage = Math.round(((sourceFiles.length - untestedFiles.length) / sourceFiles.length) * 100);

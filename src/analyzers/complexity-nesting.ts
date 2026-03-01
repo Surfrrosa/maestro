@@ -1,5 +1,8 @@
 import type { QualityFinding } from './types.js';
 
+const FUNC_PATTERN = /(?:(?:export\s+)?(?:async\s+)?function\s+(\w+)|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\(|(\w+)\s*\([^)]*\)\s*(?::\s*\w[^{]*)?\s*\{)/;
+const JS_KEYWORDS = new Set(['if', 'else', 'for', 'while', 'do', 'switch', 'try', 'catch', 'finally', 'with', 'return', 'throw', 'new', 'delete', 'typeof', 'void', 'in', 'of']);
+
 function isControlFlowBrace(line: string, braceIndex: number): boolean {
   const left = line.substring(0, braceIndex).trimEnd();
   if (left.length === 0) return false;
@@ -15,14 +18,15 @@ function isControlFlowBrace(line: string, braceIndex: number): boolean {
   return false;
 }
 
-function pushNestingFinding(findings: QualityFinding[], file: string, maxDepth: number, maxNesting: number, startLine: number): void {
+function pushNestingFinding(findings: QualityFinding[], file: string, maxDepth: number, maxNesting: number, startLine: number, funcName?: string): void {
+  const context = funcName ? ` in '${funcName}'` : '';
   findings.push({
     rule: 'nesting-depth',
     category: 'complexity',
     severity: maxDepth > 6 ? 'error' : 'warning',
     file,
     line: startLine + 1,
-    message: `Nesting depth of ${maxDepth} (max ${maxNesting}). Deeply nested code is hard to follow.`,
+    message: `Nesting depth of ${maxDepth}${context} (max ${maxNesting}). Deeply nested code is hard to follow.`,
     suggestion: 'Extract inner logic into separate functions or use early returns.',
   });
 }
@@ -34,12 +38,58 @@ export function analyzeNestingDepth(content: string, file: string, stack: string
   return analyzeJsNesting(content, file, maxNesting);
 }
 
+interface BraceState {
+  braceStack: boolean[];
+  controlDepth: number;
+  inString: boolean;
+  stringChar: string;
+  currentFuncName?: string;
+  funcBraceStart: number;
+}
+
+function scanLineCharacters(line: string, state: BraceState): number {
+  let lineMaxDepth = state.controlDepth;
+  for (let j = 0; j < line.length; j++) {
+    const ch = line[j];
+    if (state.inString) {
+      if (ch === state.stringChar && line[j - 1] !== '\\') state.inString = false;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === '`') {
+      state.inString = true;
+      state.stringChar = ch;
+      continue;
+    }
+    if (ch === '/' && line[j + 1] === '/') break;
+    if (ch === '{') {
+      const isControl = isControlFlowBrace(line, j);
+      state.braceStack.push(isControl);
+      if (isControl) {
+        state.controlDepth++;
+        if (state.controlDepth > lineMaxDepth) lineMaxDepth = state.controlDepth;
+      }
+    }
+    if (ch === '}') {
+      const wasControl = state.braceStack.pop();
+      if (wasControl) state.controlDepth--;
+      if (state.funcBraceStart >= 0 && state.braceStack.length <= state.funcBraceStart) {
+        state.currentFuncName = undefined;
+        state.funcBraceStart = -1;
+      }
+    }
+  }
+  return lineMaxDepth;
+}
+
 function analyzePythonNesting(content: string, file: string, maxNesting: number): QualityFinding[] {
   const findings: QualityFinding[] = [];
   const lines = content.split('\n');
   let inDeepBlock = false;
   let blockStartLine = -1;
   let blockMaxLevel = 0;
+  let blockFuncName: string | undefined;
+  let currentFuncName: string | undefined;
+  let funcIndent = -1;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -47,21 +97,31 @@ function analyzePythonNesting(content: string, file: string, maxNesting: number)
     const indent = line.match(/^(\s*)/)?.[1].length || 0;
     const level = Math.floor(indent / 4);
 
+    const defMatch = line.match(/^(\s*)(?:async\s+)?def\s+(\w+)/);
+    if (defMatch) {
+      currentFuncName = defMatch[2];
+      funcIndent = defMatch[1].length;
+    } else if (currentFuncName && indent <= funcIndent) {
+      currentFuncName = undefined;
+      funcIndent = -1;
+    }
+
     if (level > maxNesting) {
       if (!inDeepBlock) {
         inDeepBlock = true;
         blockStartLine = i;
         blockMaxLevel = level;
+        blockFuncName = currentFuncName;
       } else if (level > blockMaxLevel) {
         blockMaxLevel = level;
       }
     } else if (inDeepBlock) {
-      pushNestingFinding(findings, file, blockMaxLevel, maxNesting, blockStartLine);
+      pushNestingFinding(findings, file, blockMaxLevel, maxNesting, blockStartLine, blockFuncName);
       inDeepBlock = false;
     }
   }
   if (inDeepBlock) {
-    pushNestingFinding(findings, file, blockMaxLevel, maxNesting, blockStartLine);
+    pushNestingFinding(findings, file, blockMaxLevel, maxNesting, blockStartLine, blockFuncName);
   }
 
   return findings;
@@ -70,59 +130,48 @@ function analyzePythonNesting(content: string, file: string, maxNesting: number)
 function analyzeJsNesting(content: string, file: string, maxNesting: number): QualityFinding[] {
   const findings: QualityFinding[] = [];
   const lines = content.split('\n');
-  const braceStack: boolean[] = [];
-  let controlDepth = 0;
-  let inString = false;
-  let stringChar = '';
+  const state: BraceState = {
+    braceStack: [],
+    controlDepth: 0,
+    inString: false,
+    stringChar: '',
+    funcBraceStart: -1,
+  };
   let inDeepBlock = false;
   let blockStartLine = -1;
   let blockMaxDepth = 0;
+  let blockFuncName: string | undefined;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    let lineMaxDepth = controlDepth;
 
-    for (let j = 0; j < line.length; j++) {
-      const ch = line[j];
-      if (inString) {
-        if (ch === stringChar && line[j - 1] !== '\\') inString = false;
-        continue;
-      }
-      if (ch === '"' || ch === "'" || ch === '`') {
-        inString = true;
-        stringChar = ch;
-        continue;
-      }
-      if (ch === '/' && line[j + 1] === '/') break;
-      if (ch === '{') {
-        const isControl = isControlFlowBrace(line, j);
-        braceStack.push(isControl);
-        if (isControl) {
-          controlDepth++;
-          if (controlDepth > lineMaxDepth) lineMaxDepth = controlDepth;
-        }
-      }
-      if (ch === '}') {
-        const wasControl = braceStack.pop();
-        if (wasControl) controlDepth--;
+    if (state.funcBraceStart < 0 || state.braceStack.length <= state.funcBraceStart) {
+      const match = line.match(FUNC_PATTERN);
+      if (match && line.includes('{')) {
+        const name = match[1] || match[2] || match[3];
+        state.currentFuncName = name && !JS_KEYWORDS.has(name) ? name : undefined;
+        state.funcBraceStart = state.braceStack.length;
       }
     }
+
+    const lineMaxDepth = scanLineCharacters(line, state);
 
     if (lineMaxDepth > maxNesting) {
       if (!inDeepBlock) {
         inDeepBlock = true;
         blockStartLine = i;
         blockMaxDepth = lineMaxDepth;
+        blockFuncName = state.currentFuncName;
       } else if (lineMaxDepth > blockMaxDepth) {
         blockMaxDepth = lineMaxDepth;
       }
     } else if (inDeepBlock) {
-      pushNestingFinding(findings, file, blockMaxDepth, maxNesting, blockStartLine);
+      pushNestingFinding(findings, file, blockMaxDepth, maxNesting, blockStartLine, blockFuncName);
       inDeepBlock = false;
     }
   }
   if (inDeepBlock) {
-    pushNestingFinding(findings, file, blockMaxDepth, maxNesting, blockStartLine);
+    pushNestingFinding(findings, file, blockMaxDepth, maxNesting, blockStartLine, blockFuncName);
   }
 
   return findings;
