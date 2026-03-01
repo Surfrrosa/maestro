@@ -1,6 +1,7 @@
 import type { QualityFinding, AnalyzerContext } from './types.js';
 import { basename } from 'node:path';
 import { buildImportGraph } from './dead-code.js';
+import { isTestFile } from './patterns.js';
 
 function hasTestFile(srcFile: string, allFiles: string[]): boolean {
   const baseName = basename(srcFile).replace(/\.(ts|tsx|js|jsx|py)$/, '');
@@ -62,12 +63,7 @@ export function analyzeTesting(ctx: AnalyzerContext): QualityFinding[] {
 }
 
 function findTestFiles(files: string[]): Set<string> {
-  return new Set(
-    files.filter(f =>
-      f.includes('.test.') || f.includes('.spec.') ||
-      f.includes('__tests__/') || f.startsWith('tests/') || f.startsWith('test/')
-    )
-  );
+  return new Set(files.filter(isTestFile));
 }
 
 function buildSourceFileList(files: string[], testFiles: Set<string>): string[] {

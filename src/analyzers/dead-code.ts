@@ -54,7 +54,11 @@ function resolveImport(importPath: string, fromFile: string, ctx: AnalyzerContex
   return null;
 }
 
+let cachedGraph: { ctx: AnalyzerContext; graph: ImportGraph } | null = null;
+
 function buildImportGraph(ctx: AnalyzerContext): ImportGraph {
+  if (cachedGraph && cachedGraph.ctx === ctx) return cachedGraph.graph;
+
   const imports = new Map<string, Set<string>>();
   const importedBy = new Map<string, Set<string>>();
   const exports = new Map<string, Set<string>>();
@@ -73,7 +77,9 @@ function buildImportGraph(ctx: AnalyzerContext): ImportGraph {
     }
   }
 
-  return { imports, importedBy, exports };
+  const graph = { imports, importedBy, exports };
+  cachedGraph = { ctx, graph };
+  return graph;
 }
 
 function buildPythonImportGraph(content: string, file: string, graph: ImportGraph, ctx: AnalyzerContext): void {

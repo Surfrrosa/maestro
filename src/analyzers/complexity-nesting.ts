@@ -1,7 +1,5 @@
 import type { QualityFinding } from './types.js';
-
-const FUNC_PATTERN = /(?:(?:export\s+)?(?:async\s+)?function\s+(\w+)|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\(|(\w+)\s*\([^)]*\)\s*(?::\s*\w[^{]*)?\s*\{)/;
-const JS_KEYWORDS = new Set(['if', 'else', 'for', 'while', 'do', 'switch', 'try', 'catch', 'finally', 'with', 'return', 'throw', 'new', 'delete', 'typeof', 'void', 'in', 'of']);
+import { FUNC_PATTERN, PYTHON_DEF_PATTERN, JS_KEYWORDS } from './patterns.js';
 
 function isControlFlowBrace(line: string, braceIndex: number): boolean {
   const left = line.substring(0, braceIndex).trimEnd();
@@ -97,7 +95,7 @@ function analyzePythonNesting(content: string, file: string, maxNesting: number)
     const indent = line.match(/^(\s*)/)?.[1].length || 0;
     const level = Math.floor(indent / 4);
 
-    const defMatch = line.match(/^(\s*)(?:async\s+)?def\s+(\w+)/);
+    const defMatch = line.match(PYTHON_DEF_PATTERN);
     if (defMatch) {
       currentFuncName = defMatch[2];
       funcIndent = defMatch[1].length;

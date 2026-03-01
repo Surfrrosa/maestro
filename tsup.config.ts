@@ -28,6 +28,7 @@ export default defineConfig([
       'src/utils/fs.ts',
       'src/utils/format.ts',
       'src/analyzers/types.ts',
+      'src/analyzers/patterns.ts',
       'src/analyzers/context.ts',
       'src/analyzers/complexity.ts',
       'src/analyzers/complexity-function-length.ts',

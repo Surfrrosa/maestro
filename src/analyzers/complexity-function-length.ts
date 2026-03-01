@@ -1,4 +1,5 @@
 import type { QualityFinding } from './types.js';
+import { FUNC_PATTERN, PYTHON_DEF_PATTERN } from './patterns.js';
 
 export function analyzeFunctionLengths(content: string, file: string, stack: string, maxFuncLines: number): QualityFinding[] {
   if (stack === 'python') {
@@ -30,7 +31,7 @@ function analyzePythonFunctionLengths(content: string, file: string, maxFuncLine
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const defMatch = line.match(/^(\s*)(?:async\s+)?def\s+(\w+)/);
+    const defMatch = line.match(PYTHON_DEF_PATTERN);
 
     if (defMatch) {
       if (funcStart >= 0 && defMatch[1].length <= funcIndent) {
@@ -51,7 +52,7 @@ function analyzePythonFunctionLengths(content: string, file: string, maxFuncLine
 function analyzeJsFunctionLengths(content: string, file: string, maxFuncLines: number): QualityFinding[] {
   const findings: QualityFinding[] = [];
   const lines = content.split('\n');
-  const funcPattern = /(?:(?:export\s+)?(?:async\s+)?function\s+(\w+)|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\(|(\w+)\s*\([^)]*\)\s*(?::\s*\w[^{]*)?\s*\{)/;
+  const funcPattern = FUNC_PATTERN;
   let braceDepth = 0;
   let funcStart = -1;
   let funcName = '';

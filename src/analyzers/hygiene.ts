@@ -1,14 +1,12 @@
 import type { QualityFinding, AnalyzerContext } from './types.js';
 import { getContent } from './context.js';
-
-const FUNC_PATTERN = /(?:(?:export\s+)?(?:async\s+)?function\s+(\w+)|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\(|(\w+)\s*\([^)]*\)\s*(?::\s*\w[^{]*)?\s*\{)/;
-const JS_KEYWORDS = new Set(['if', 'else', 'for', 'while', 'do', 'switch', 'try', 'catch', 'finally', 'with', 'return', 'throw', 'new', 'delete', 'typeof', 'void', 'in', 'of']);
+import { FUNC_PATTERN, PYTHON_DEF_PATTERN, JS_KEYWORDS, isTestFile } from './patterns.js';
 
 export function analyzeHygiene(ctx: AnalyzerContext): QualityFinding[] {
   const findings: QualityFinding[] = [];
 
   for (const file of ctx.files) {
-    const isTest = file.includes('.test.') || file.includes('.spec.') || file.includes('__tests__') || file.startsWith('tests/');
+    const isTest = isTestFile(file);
     const isCLI = file.includes('commands/') || file.includes('bin/') || file.includes('cli');
     const content = getContent(ctx, file);
     const lines = content.split('\n');
@@ -97,7 +95,7 @@ function buildPythonFunctionMap(lines: string[]): Map<number, string> {
       continue;
     }
     const indent = line.match(/^(\s*)/)?.[1].length || 0;
-    const defMatch = line.match(/^(\s*)(?:async\s+)?def\s+(\w+)/);
+    const defMatch = line.match(PYTHON_DEF_PATTERN);
     if (defMatch) {
       currentFunc = defMatch[2];
       funcIndent = defMatch[1].length;
