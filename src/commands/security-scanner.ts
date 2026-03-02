@@ -32,9 +32,15 @@ export const SECRET_PATTERNS: Array<{ regex: RegExp; name: string }> = [
 
 const SCAN_FILE_LIMIT = 500;
 
-function scanLineForSecret(line: string, file: string, lineNum: number): SecurityFinding | null {
+export function isTestFile(file: string): boolean {
+  return /(?:^|\/)(?:__tests__|tests?|__mocks__|__fixtures__|fixtures)\//.test(file)
+    || /\.(?:test|spec|mock)\.[^.]+$/.test(file);
+}
+
+export function scanLineForSecret(line: string, file: string, lineNum: number): SecurityFinding | null {
   if (file === '.env') return null;
-  if (/your[_-]?(?:key|token|secret|value)|changeme|placeholder|xxx+|TODO/i.test(line)) return null;
+  if (isTestFile(file)) return null;
+  if (/your[_-]?(?:key|token|secret|value)|changeme|placeholder|xxx+|TODO|mock[_-]|test[_-]|fake[_-]|dummy[_-]|sample[_-]|example[_-]/i.test(line)) return null;
 
   for (const pattern of SECRET_PATTERNS) {
     if (pattern.regex.test(line)) {
@@ -55,7 +61,7 @@ async function scanSecrets(cwd: string): Promise<SecurityFinding[]> {
   const findings: SecurityFinding[] = [];
   const allFiles = await glob('**/*.{ts,js,tsx,jsx,py,json,yml,yaml,toml,cfg,ini,env}', {
     cwd,
-    ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/__pycache__/**', '*.lock', 'package-lock.json', '.env.example', '**/*.test.*', '**/*.spec.*'],
+    ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/__pycache__/**', '*.lock', 'package-lock.json', '.env.example', '**/*.test.*', '**/*.spec.*', '**/__tests__/**', '**/tests/**', '**/__mocks__/**', '**/__fixtures__/**'],
     maxDepth: 6,
   });
 

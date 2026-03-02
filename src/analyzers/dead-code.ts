@@ -10,6 +10,20 @@ interface ImportGraph {
   exports: Map<string, Set<string>>;
 }
 
+/**
+ * File basenames (without extension) loaded by frameworks via convention,
+ * not via explicit import. Data source: Next.js App Router + Pages Router.
+ */
+const FRAMEWORK_ENTRY_POINTS = new Set([
+  // Next.js App Router conventions
+  'page', 'layout', 'route', 'not-found', 'error', 'loading',
+  'template', 'default', 'sitemap', 'robots', 'opengraph-image',
+  'twitter-image', 'icon', 'apple-icon', 'manifest', 'middleware',
+  'instrumentation', 'global-error',
+  // Next.js Pages Router conventions
+  '_app', '_document', '_error',
+]);
+
 const RESOLUTION_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '/index.ts', '/index.js', '/index.tsx', '/index.jsx'];
 const EXTENSION_REMAP: Record<string, string[]> = {
   '.js': ['.ts', '.tsx', '.js', '.jsx'],
@@ -156,14 +170,16 @@ function extractJsExports(content: string, exports: Set<string>): void {
 function isSkippableFile(file: string, ctx: AnalyzerContext): boolean {
   const base = basename(file);
   const isEntryPoint = /^(index|main|app|server|cli|maestro)\.(ts|js|tsx|jsx|py)$/.test(base);
+  const stem = base.replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '');
+  const isFrameworkConvention = FRAMEWORK_ENTRY_POINTS.has(stem);
   const isTest = file.includes('.test.') || file.includes('.spec.') || file.includes('__tests__') || file.startsWith('tests/');
-  const isConfig = /\.(config|setup|d)\.(ts|js)$/.test(base) || base.startsWith('.') || /^(vite|vitest|jest|tsup|webpack|rollup|next|tailwind|postcss)/.test(base);
+  const isConfig = /\.(config|setup|d)\.(ts|js|mjs|cjs)$/.test(base) || base.startsWith('.') || /^(vite|vitest|jest|tsup|webpack|rollup|next|tailwind|postcss|babel|eslint|prettier|stylelint|lint-staged|playwright)/.test(base);
   const isBin = file.startsWith('bin/');
   const isCommand = file.includes('commands/');
   const isTemplate = file.includes('templates/');
   const isIgnored = ctx.config.quality.ignore.some(pattern => minimatch(file, pattern));
 
-  return isEntryPoint || isTest || isConfig || isBin || isCommand || isTemplate || isIgnored;
+  return isEntryPoint || isFrameworkConvention || isTest || isConfig || isBin || isCommand || isTemplate || isIgnored;
 }
 
 export function analyzeDeadCode(ctx: AnalyzerContext): QualityFinding[] {

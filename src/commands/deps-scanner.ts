@@ -77,7 +77,7 @@ export async function scanNodeImports(cwd: string): Promise<Set<string>> {
 
   const files = await glob('**/*.{ts,js,tsx,jsx}', {
     cwd,
-    ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/*.d.ts', '**/*.test.*', '**/*.spec.*', 'tests/**'],
+    ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/*.d.ts', '**/*.test.*', '**/*.spec.*', 'tests/**', '**/__tests__/**', '**/__mocks__/**', '**/__fixtures__/**'],
     maxDepth: 8,
   });
 
@@ -222,11 +222,14 @@ export function checkLicenses(cwd: string, declaredDeps: Map<string, string>): D
 const CLI_TOOLS = new Set([
   'tsup', 'vitest', 'jest', 'mocha', 'eslint', 'prettier', 'typescript',
   'tsc', 'nodemon', 'ts-node', 'tsx', 'postcss', 'autoprefixer', 'tailwindcss',
+  'prisma', 'supertest', 'nock', 'jsdom', 'c8', 'nyc', 'concurrently',
+  'husky', 'lint-staged', 'rimraf', 'cross-env', 'dotenv-cli',
 ]);
 
 const CLI_PLUGIN_PREFIXES = [
   '@typescript-eslint/', '@vitest/', '@eslint/',
   'eslint-plugin-', 'eslint-config-', '@vitejs/',
+  '@testing-library/', '@tailwindcss/', '@playwright/',
 ];
 
 function findUnusedDeps(
@@ -273,25 +276,159 @@ function findPhantomDeps(declared: Map<string, string>, imported: Set<string>): 
   return findings;
 }
 
-export async function runDepsAnalysis(cwd: string): Promise<DepFinding[]> {
-  const stack = detectStack(cwd);
-  const declared = getDeclaredDeps(cwd, stack);
-  if (declared.size === 0) return [];
+// ---------------------------------------------------------------------------
+// Workspace-scoped analysis for monorepos
+// ---------------------------------------------------------------------------
 
-  const imported = stack === 'node'
-    ? await scanNodeImports(cwd)
-    : stack === 'python'
-    ? await scanPythonImports(cwd)
-    : new Set<string>();
+interface Workspace {
+  name: string;
+  path: string;
+}
 
-  const findings: DepFinding[] = [
-    ...findUnusedDeps(declared, imported, stack),
-    ...findPhantomDeps(declared, imported),
+function detectWorkspaces(cwd: string): Workspace[] {
+  try {
+    const subPkgs = globSync('*/package.json', { cwd, ignore: ['node_modules/**'] });
+    return subPkgs.map(p => {
+      const dir = p.replace(/\/package\.json$/, '');
+      return { name: dir, path: dir };
+    });
+  } catch {
+    return [];
+  }
+}
+
+function readSinglePkgDeps(pkgPath: string): Map<string, string> {
+  const deps = new Map<string, string>();
+  if (!existsSync(pkgPath)) return deps;
+  try {
+    for (const [name, version] of parsePkgDeps(readFileSync(pkgPath, 'utf-8'))) {
+      deps.set(name, version);
+    }
+  } catch {
+    // skip
+  }
+  return deps;
+}
+
+async function scanNodeImportsScoped(cwd: string, scopePath: string): Promise<Set<string>> {
+  const imported = new Set<string>();
+  const patterns = [
+    /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g,
+    /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+    /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
   ];
 
-  if (stack === 'node') {
-    findings.push(...checkLicenses(cwd, declared));
+  const globBase = join(cwd, scopePath);
+  const files = await glob('**/*.{ts,js,tsx,jsx}', {
+    cwd: globBase,
+    ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/*.d.ts', '**/*.test.*', '**/*.spec.*', 'tests/**', '**/__tests__/**', '**/__mocks__/**', '**/__fixtures__/**'],
+    maxDepth: 8,
+  });
+
+  for (const file of files) {
+    try {
+      const content = readFileSync(join(globBase, file), 'utf-8');
+      extractPackagesFromContent(content, patterns, imported);
+    } catch {
+      // Skip
+    }
+  }
+  return imported;
+}
+
+async function scanRootImports(cwd: string, workspaces: Workspace[]): Promise<Set<string>> {
+  const imported = new Set<string>();
+  const patterns = [
+    /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g,
+    /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+    /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+  ];
+
+  const workspaceDirs = workspaces.map(ws => `${ws.path}/**`);
+  const files = await glob('**/*.{ts,js,tsx,jsx}', {
+    cwd,
+    ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/*.d.ts', '**/*.test.*', '**/*.spec.*', 'tests/**', '**/__tests__/**', '**/__mocks__/**', '**/__fixtures__/**', ...workspaceDirs],
+    maxDepth: 8,
+  });
+
+  for (const file of files) {
+    try {
+      const content = readFileSync(join(cwd, file), 'utf-8');
+      extractPackagesFromContent(content, patterns, imported);
+    } catch {
+      // Skip
+    }
+  }
+  return imported;
+}
+
+async function runWorkspaceDepsAnalysis(cwd: string, workspaces: Workspace[]): Promise<DepFinding[]> {
+  const findings: DepFinding[] = [];
+  const rootDeclared = readSinglePkgDeps(join(cwd, 'package.json'));
+
+  // Check root package.json against root-level source files only
+  if (rootDeclared.size > 0) {
+    const rootImported = await scanRootImports(cwd, workspaces);
+    findings.push(...findUnusedDeps(rootDeclared, rootImported, 'node'));
+    findings.push(...findPhantomDeps(rootDeclared, rootImported));
+    findings.push(...checkLicenses(cwd, rootDeclared));
+  }
+
+  // Check each workspace independently
+  for (const ws of workspaces) {
+    const wsDeclared = readSinglePkgDeps(join(cwd, ws.path, 'package.json'));
+    if (wsDeclared.size === 0) continue;
+
+    const wsImported = await scanNodeImportsScoped(cwd, ws.path);
+
+    // Unused: check only deps declared in this workspace's package.json
+    for (const f of findUnusedDeps(wsDeclared, wsImported, 'node')) {
+      f.detail = `[${ws.name}] ${f.detail}`;
+      findings.push(f);
+    }
+
+    // Phantom: check against both workspace AND root deps (handles hoisted packages)
+    const wsEffectiveDeps = new Map([...rootDeclared, ...wsDeclared]);
+    for (const f of findPhantomDeps(wsEffectiveDeps, wsImported)) {
+      f.detail = `[${ws.name}] ${f.detail}`;
+      findings.push(f);
+    }
   }
 
   return findings;
+}
+
+export async function runDepsAnalysis(cwd: string): Promise<DepFinding[]> {
+  const stack = detectStack(cwd);
+
+  if (stack !== 'node') {
+    const declared = getDeclaredDeps(cwd, stack);
+    if (declared.size === 0) return [];
+    const imported = stack === 'python'
+      ? await scanPythonImports(cwd)
+      : new Set<string>();
+    return [
+      ...findUnusedDeps(declared, imported, stack),
+      ...findPhantomDeps(declared, imported),
+    ];
+  }
+
+  // Node: detect workspaces
+  const workspaces = detectWorkspaces(cwd);
+
+  if (workspaces.length === 0) {
+    // Single-package project: existing behavior
+    const declared = getDeclaredDeps(cwd, stack);
+    if (declared.size === 0) return [];
+    const imported = await scanNodeImports(cwd);
+    const findings: DepFinding[] = [
+      ...findUnusedDeps(declared, imported, stack),
+      ...findPhantomDeps(declared, imported),
+    ];
+    findings.push(...checkLicenses(cwd, declared));
+    return findings;
+  }
+
+  // Monorepo: workspace-scoped analysis
+  return runWorkspaceDepsAnalysis(cwd, workspaces);
 }
