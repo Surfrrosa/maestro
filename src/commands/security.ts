@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { header, info, PASS, FAIL, divider, palette, failBanner, hint } from '../utils/format.js';
+import { header, info, PASS, FAIL, divider, palette, failBanner, hint, formatLocation } from '../utils/format.js';
 import { runSecurityScan, type SecurityFinding } from './security-scanner.js';
 
 export { runSecurityScan, SecurityFinding, SECRET_PATTERNS } from './security-scanner.js';
@@ -28,7 +28,7 @@ function renderSecurityFindings(grouped: Record<string, SecurityFinding[]>): voi
 
     console.log(`  ${sevColor(severity.toUpperCase())} (${items.length})\n`);
     for (const f of items) {
-      const location = f.file ? (f.line ? `${f.file}:${f.line}` : f.file) : '';
+      const location = f.file ? formatLocation(f.file, f.line) : '';
       console.log(`  ${FAIL}  ${f.message}`);
       if (location) console.log(`     ${chalk.dim(location)}`);
       console.log(`     ${chalk.dim(f.suggestion)}`);

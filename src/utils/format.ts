@@ -88,6 +88,14 @@ export function score(value: number, total: number): string {
   return color.bold(`${value}/${total}`);
 }
 
+export function scoreColor(value: number): typeof chalk {
+  return value >= 80 ? chalk.hex(PASS_C) : value >= 50 ? chalk.hex(WARN_C) : chalk.hex(FAIL_C);
+}
+
+export function formatLocation(file: string, line?: number): string {
+  return line ? `${file}:${line}` : file;
+}
+
 // ── Text Helpers ─────────────────────────────────────────
 export function success(text: string): string {
   return chalk.hex(PASS_C)(`  ${text}`);

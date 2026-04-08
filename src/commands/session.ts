@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { input, select } from '@inquirer/prompts';
 import chalk from 'chalk';
 import { join } from 'node:path';
-import { readdirSync, existsSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { writeFile, readFile, fileExists, ensureDir, today } from '../utils/fs.js';
 import { generateSessionLog } from '../templates/session-log.js';
@@ -11,7 +11,7 @@ import { generateSessionIndex, appendSessionEntry } from '../templates/session-i
 function getGitChanges(cwd: string): string[] {
   try {
     // Check if we're in a git repo
-    if (!existsSync(join(cwd, '.git'))) return [];
+    if (!fileExists(join(cwd, '.git'))) return [];
 
     const output = execSync('git diff --stat HEAD 2>/dev/null || git diff --stat 2>/dev/null || echo ""', {
       cwd,

@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { join } from 'node:path';
-import { existsSync, chmodSync, unlinkSync } from 'node:fs';
+import { chmodSync, unlinkSync } from 'node:fs';
 import { writeFile, ensureDir, fileExists, readFile } from '../utils/fs.js';
 import { header, info } from '../utils/format.js';
 
@@ -130,7 +130,7 @@ hooksCommand
 
     if (installBoth || options.git) {
       const gitDir = join(cwd, '.git');
-      if (!existsSync(gitDir)) {
+      if (!fileExists(gitDir)) {
         console.log(chalk.yellow(`  Not a git repository. Skipping git hook.\n`));
       } else {
         installGitHook(cwd, gitDir);
@@ -139,7 +139,7 @@ hooksCommand
 
     if (options.preCommit) {
       const gitDir = join(cwd, '.git');
-      if (!existsSync(gitDir)) {
+      if (!fileExists(gitDir)) {
         console.log(chalk.yellow(`  Not a git repository. Skipping pre-commit hook.\n`));
       } else {
         installPreCommitHook(cwd, gitDir);

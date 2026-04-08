@@ -2,14 +2,13 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { basename } from 'node:path';
 import { runQualityAnalysis } from '../analyzers/index.js';
-import { header, info, divider, PASS, FAIL, WARN, gradeDisplay, section, palette, hint, successBanner } from '../utils/format.js';
+import { header, info, divider, PASS, FAIL, WARN, gradeDisplay, section, palette, hint, successBanner, scoreColor, formatLocation } from '../utils/format.js';
 import { copyToClipboard } from '../utils/fs.js';
 import type { QualityReport, CategoryScore } from '../analyzers/types.js';
 
 function renderCategory(cat: CategoryScore): void {
   const icon = cat.score >= 80 ? PASS : cat.score >= 50 ? WARN : FAIL;
-  const color = cat.score >= 80 ? chalk.hex(palette.PASS_C) : cat.score >= 50 ? chalk.hex(palette.WARN_C) : chalk.hex(palette.FAIL_C);
-  const scoreStr = color(`${cat.score}%`);
+  const scoreStr = scoreColor(cat.score)(`${cat.score}%`);
   const label = cat.category.padEnd(18);
   const count = cat.findings.length;
   const countStr = count > 0 ? chalk.dim(` (${count} finding${count !== 1 ? 's' : ''})`) : '';
@@ -31,8 +30,7 @@ function renderTopOffenders(report: QualityReport, limit: number = 5): void {
   console.log(section('Top issues'));
   for (const f of ranked) {
     const sevColor = f.severity === 'error' ? chalk.hex(palette.FAIL_C) : chalk.hex(palette.WARN_C);
-    const location = f.line ? `${f.file}:${f.line}` : f.file;
-    console.log(`  ${sevColor(f.severity.toUpperCase().padEnd(7))} ${chalk.dim(location)}`);
+    console.log(`  ${sevColor(f.severity.toUpperCase().padEnd(7))} ${chalk.dim(formatLocation(f.file, f.line))}`);
     console.log(`          ${f.message}`);
     if (f.suggestion) {
       console.log(`          ${chalk.dim(f.suggestion)}`);
@@ -75,8 +73,7 @@ export const qualityCommand = new Command('quality')
         console.log(section(cat.category));
         for (const f of cat.findings) {
           const sevColor = f.severity === 'error' ? chalk.hex(palette.FAIL_C) : f.severity === 'warning' ? chalk.hex(palette.WARN_C) : chalk.dim;
-          const location = f.line ? `${f.file}:${f.line}` : f.file;
-          console.log(`    ${sevColor(f.severity.padEnd(7))} ${chalk.dim(location)}`);
+          console.log(`    ${sevColor(f.severity.padEnd(7))} ${chalk.dim(formatLocation(f.file, f.line))}`);
           console.log(`            ${f.message}`);
         }
       }
@@ -93,7 +90,7 @@ export const qualityCommand = new Command('quality')
         ...allFindings
           .filter(f => f.severity !== 'info')
           .map(f => {
-            const loc = f.line ? `${f.file}:${f.line}` : f.file;
+            const loc = formatLocation(f.file, f.line);
             return `- ${loc}: ${f.message}${f.suggestion ? ' ' + f.suggestion : ''}`;
           }),
       ].join('\n');

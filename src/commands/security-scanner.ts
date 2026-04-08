@@ -1,6 +1,5 @@
 import chalk from 'chalk';
 import { join } from 'node:path';
-import { readFileSync } from 'node:fs';
 import { glob } from 'glob';
 import { fileExists, readFile } from '../utils/fs.js';
 import { isTestFile } from '../analyzers/patterns.js';
@@ -68,7 +67,7 @@ async function scanSecrets(cwd: string): Promise<SecurityFinding[]> {
 
   for (const file of files) {
     try {
-      const lines = readFileSync(join(cwd, file), 'utf-8').split('\n');
+      const lines = readFile(join(cwd, file)).split('\n');
       for (let i = 0; i < lines.length; i++) {
         const finding = scanLineForSecret(lines[i], file, i + 1);
         if (finding) { findings.push(finding); }
@@ -125,7 +124,7 @@ async function scanEnvLeaks(cwd: string): Promise<SecurityFinding[]> {
   const seen = new Set<string>();
   for (const file of files) {
     try {
-      const refs = findEnvReferences(readFileSync(join(cwd, file), 'utf-8'), exampleKeys);
+      const refs = findEnvReferences(readFile(join(cwd, file)), exampleKeys);
       for (const ref of refs) {
         if (seen.has(ref.key)) continue;
         seen.add(ref.key);
@@ -162,7 +161,7 @@ async function scanUnsafeExec(cwd: string): Promise<SecurityFinding[]> {
   for (const file of files) {
     const ext = file.split('.').pop() || '';
     try {
-      const lines = readFileSync(join(cwd, file), 'utf-8').split('\n');
+      const lines = readFile(join(cwd, file)).split('\n');
       for (let i = 0; i < lines.length; i++) {
         for (const pattern of unsafePatterns) {
           if (pattern.ext.includes(ext) && pattern.regex.test(lines[i])) {
@@ -201,7 +200,7 @@ async function scanDockerExposure(cwd: string): Promise<SecurityFinding[]> {
 
   for (const file of dockerfiles) {
     try {
-      const lines = readFileSync(join(cwd, file), 'utf-8').split('\n');
+      const lines = readFile(join(cwd, file)).split('\n');
       for (let i = 0; i < lines.length; i++) {
         const finding = checkDockerLine(lines[i].trim(), file, i + 1);
         if (finding) findings.push(finding);

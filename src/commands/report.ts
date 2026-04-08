@@ -1,14 +1,13 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { header, info, divider, scoreBar, gradeDisplay, FAIL, section, palette, hint, successBanner } from '../utils/format.js';
+import { header, info, divider, scoreBar, gradeDisplay, FAIL, section, palette, hint, successBanner, scoreColor } from '../utils/format.js';
 import { copyToClipboard } from '../utils/fs.js';
 import { runReport, formatClipboardReport, formatSecuritySummary, formatDepsSummary, type ReportResult } from './report-scoring.js';
 
 export { runReport, type ReportResult, type AttentionItem } from './report-scoring.js';
 
-function renderSectionLine(label: string, score: number, detail: string): void {
-  const scoreColor = score >= 80 ? chalk.hex(palette.PASS_C) : score >= 50 ? chalk.hex(palette.WARN_C) : chalk.hex(palette.FAIL_C);
-  console.log(`  ${label.padEnd(16)} ${scoreColor.bold(`${score}/100`)}   ${chalk.dim(detail)}`);
+function renderSectionLine(label: string, sectionScore: number, detail: string): void {
+  console.log(`  ${label.padEnd(16)} ${scoreColor(sectionScore).bold(`${sectionScore}/100`)}   ${chalk.dim(detail)}`);
 }
 
 function renderAttentionItems(result: ReportResult): void {
