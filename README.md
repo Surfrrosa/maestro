@@ -78,7 +78,7 @@ Starting fresh? Use `maestro init` instead of `scan`.
 
 | Command | What it does |
 |---------|-------------|
-| `maestro report` | **Full health report: audit + quality + security + deps in one pass** |
+| `maestro report` | Full health report: audit + quality + security + deps in one pass |
 | `maestro audit` | Score project against 12 checks (0-100) |
 | `maestro quality` | Code quality grade (A-F, 7 categories) |
 | `maestro security` | Scan for secrets and vulnerabilities |

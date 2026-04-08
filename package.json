@@ -1,7 +1,7 @@
 {
   "name": "maestro-dev",
   "version": "0.3.0",
-  "description": "AI-native project scaffolding CLI. Generates instruction files, session logs, brand voice docs, design systems, and security checklists for coherent AI-assisted development.",
+  "description": "CLI that scaffolds CLAUDE.md, session logs, and project docs for AI-assisted development.",
   "type": "module",
   "bin": {
     "maestro": "./dist/bin/maestro.js"

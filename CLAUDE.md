@@ -38,19 +38,25 @@ npm test
 
 ## Domain Rules
 
-<!-- Add project-specific rules here. These are non-negotiable constraints. Examples: -->
-<!-- - NEVER guess data. Always verify computationally. -->
-<!-- - All API responses must include error codes. -->
-<!-- - CSS must use the design system variables in docs/DESIGN_SYSTEM.md. -->
-<!-- - This module should never import from that module. -->
+- Commands in `src/commands/` must be split into handler (CLI wiring) + logic (testable functions). The handler file owns the Commander definition; the logic file exports pure functions.
+- All filesystem access in commands should use `readFile`/`fileExists` from `src/utils/fs.ts`, not bare `readFileSync`/`existsSync`.
+- Analyzers receive an `AnalyzerContext` and return `QualityFinding[]`. They must not write to stdout or exit.
+- Test files must map 1:1 to source files by name (e.g., `audit-checks.test.ts` tests `audit-checks.ts`). The testing analyzer uses filename matching for coverage detection.
+- No `^` or `~` in dependency versions. Pin exact.
 
 ## Known Technical Debt
 
-<!-- Track technical debt explicitly. Keep this current. Example: -->
-<!-- ### Duplicated template code (Medium) -->
-<!-- Pages share boilerplate that should be extracted. -->
-<!-- Files affected: src/pages/*.html -->
-<!-- Estimated effort: 4-6 hours -->
+### Testing analyzer coverage detection (Medium)
+Matches test coverage by filename pattern, not by tracing imports. A test file that covers multiple modules gives credit to none of them unless the name matches. `quality.test.ts` tested 7 modules but none got credit.
+Files affected: `src/analyzers/testing.ts`
+
+### Duplicate string-scanner state machine (Medium)
+The character-by-character parser that tracks string context and brace depth is copy-pasted across three analyzer files.
+Files affected: `src/analyzers/complexity-function-length.ts`, `src/analyzers/complexity-nesting.ts`, `src/analyzers/hygiene.ts`
+
+### Security scanner bypasses AnalyzerContext (Low)
+Runs its own glob calls independently instead of sharing the file list already built by `buildContext()`. Results in 3-4 redundant filesystem traversals per scan.
+Files affected: `src/commands/security-scanner.ts`
 
 ## Dependencies
 
