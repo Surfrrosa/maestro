@@ -32,6 +32,24 @@ export const SECRET_PATTERNS: Array<{ regex: RegExp; name: string }> = [
 
 const SCAN_FILE_LIMIT = 500;
 
+function scanFileLines(
+  files: string[],
+  cwd: string,
+  check: (line: string, file: string, lineNum: number) => SecurityFinding | null,
+): SecurityFinding[] {
+  const findings: SecurityFinding[] = [];
+  for (const file of files) {
+    try {
+      const lines = readFile(join(cwd, file)).split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        const finding = check(lines[i], file, i + 1);
+        if (finding) findings.push(finding);
+      }
+    } catch { /* Skip unreadable files */ }
+  }
+  return findings;
+}
+
 export function scanLineForSecret(line: string, file: string, lineNum: number): SecurityFinding | null {
   if (file === '.env') return null;
   if (isTestFile(file)) return null;
@@ -65,17 +83,7 @@ async function scanSecrets(cwd: string): Promise<SecurityFinding[]> {
     console.warn(`  ${chalk.yellow('!')}  Scanned ${SCAN_FILE_LIMIT} of ${allFiles.length} files. Large project -- results may be incomplete.`);
   }
 
-  for (const file of files) {
-    try {
-      const lines = readFile(join(cwd, file)).split('\n');
-      for (let i = 0; i < lines.length; i++) {
-        const finding = scanLineForSecret(lines[i], file, i + 1);
-        if (finding) { findings.push(finding); }
-      }
-    } catch {
-      // Skip unreadable files
-    }
-  }
+  findings.push(...scanFileLines(files, cwd, scanLineForSecret));
   return findings;
 }
 
@@ -158,23 +166,19 @@ async function scanUnsafeExec(cwd: string): Promise<SecurityFinding[]> {
     maxDepth: 6,
   });
 
-  for (const file of files) {
+  findings.push(...scanFileLines(files, cwd, (line, file, lineNum) => {
     const ext = file.split('.').pop() || '';
-    try {
-      const lines = readFile(join(cwd, file)).split('\n');
-      for (let i = 0; i < lines.length; i++) {
-        for (const pattern of unsafePatterns) {
-          if (pattern.ext.includes(ext) && pattern.regex.test(lines[i])) {
-            findings.push({
-              severity: 'high', category: 'unsafe-exec', message: pattern.name,
-              file, line: i + 1,
-              suggestion: 'Avoid dynamic code execution. Use parameterized queries or safe alternatives.',
-            });
-          }
-        }
+    for (const pattern of unsafePatterns) {
+      if (pattern.ext.includes(ext) && pattern.regex.test(line)) {
+        return {
+          severity: 'high', category: 'unsafe-exec', message: pattern.name,
+          file, line: lineNum,
+          suggestion: 'Avoid dynamic code execution. Use parameterized queries or safe alternatives.',
+        };
       }
-    } catch { /* Skip */ }
-  }
+    }
+    return null;
+  }));
   return findings;
 }
 
@@ -198,15 +202,7 @@ async function scanDockerExposure(cwd: string): Promise<SecurityFinding[]> {
   const findings: SecurityFinding[] = [];
   const dockerfiles = await glob('**/Dockerfile*', { cwd, ignore: ['**/node_modules/**', '**/.git/**'], maxDepth: 3 });
 
-  for (const file of dockerfiles) {
-    try {
-      const lines = readFile(join(cwd, file)).split('\n');
-      for (let i = 0; i < lines.length; i++) {
-        const finding = checkDockerLine(lines[i].trim(), file, i + 1);
-        if (finding) findings.push(finding);
-      }
-    } catch { /* Skip */ }
-  }
+  findings.push(...scanFileLines(dockerfiles, cwd, (line, file, lineNum) => checkDockerLine(line.trim(), file, lineNum)));
   return findings;
 }
 
