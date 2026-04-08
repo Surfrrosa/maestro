@@ -15,10 +15,10 @@ function makeContext(files: Record<string, string>, stack: 'node' | 'python' = '
 }
 
 describe('analyzeDeadCode', () => {
-  it('returns a findings array', () => {
+  it('returns empty findings for single-file project', () => {
     const ctx = makeContext({ 'src/app.ts': 'export const x = 1;\n' });
     const findings = analyzeDeadCode(ctx);
-    expect(Array.isArray(findings)).toBe(true);
+    expect(findings).toHaveLength(0);
   });
 
   it('flags files that are never imported', () => {

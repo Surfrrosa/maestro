@@ -76,4 +76,36 @@ describe('analyzeHygiene', () => {
     expect(debt).toBeDefined();
     expect(debt!.message).not.toContain("in '");
   });
+
+  it('skips console.log in test files', () => {
+    const ctx = makeContext({
+      'tests/app.test.ts': 'console.log("test output");\n',
+    });
+    const findings = analyzeHygiene(ctx);
+    expect(findings.filter(f => f.rule === 'debug-statement')).toHaveLength(0);
+  });
+
+  it('skips console.log in CLI command files', () => {
+    const ctx = makeContext({
+      'src/commands/audit.ts': 'console.log("Score: 100");\n',
+    });
+    const findings = analyzeHygiene(ctx);
+    expect(findings.filter(f => f.rule === 'debug-statement')).toHaveLength(0);
+  });
+
+  it('detects FIXME comments', () => {
+    const ctx = makeContext({
+      'src/app.ts': '// FIXME: broken login\n',
+    });
+    const findings = analyzeHygiene(ctx);
+    expect(findings.some(f => f.rule === 'tech-debt-marker')).toBe(true);
+  });
+
+  it('detects Python print statements', () => {
+    const ctx = makeContext({
+      'src/app.py': 'print("debug")\n',
+    }, 'python');
+    const findings = analyzeHygiene(ctx);
+    expect(findings.some(f => f.rule === 'debug-statement')).toBe(true);
+  });
 });

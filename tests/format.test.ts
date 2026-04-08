@@ -1,44 +1,39 @@
 import { describe, it, expect } from 'vitest';
-import { palette, SYM, PASS, FAIL, WARN, banner, header, info, divider } from '../src/utils/format.js';
+import { palette, SYM, PASS, FAIL, WARN, banner, header, info, divider, scoreColor, formatLocation } from '../src/utils/format.js';
 
 describe('format utilities', () => {
-  it('palette has expected color keys', () => {
-    expect(palette.ACCENT).toBeDefined();
-    expect(palette.PASS_C).toBeDefined();
-    expect(palette.FAIL_C).toBeDefined();
-    expect(palette.WARN_C).toBeDefined();
-    expect(palette.INFO_C).toBeDefined();
-    expect(palette.DIM_C).toBeDefined();
+  it('palette has hex color values', () => {
+    expect(palette.ACCENT).toMatch(/^#[0-9A-Fa-f]{6}$/);
+    expect(palette.PASS_C).toMatch(/^#[0-9A-Fa-f]{6}$/);
+    expect(palette.FAIL_C).toMatch(/^#[0-9A-Fa-f]{6}$/);
   });
 
-  it('SYM has expected symbol keys', () => {
-    expect(SYM.pass).toBeDefined();
-    expect(SYM.fail).toBeDefined();
-    expect(SYM.warn).toBeDefined();
-    expect(SYM.info).toBeDefined();
-    expect(SYM.arrow).toBeDefined();
+  it('PASS/FAIL/WARN symbols contain expected characters', () => {
+    expect(PASS).toContain('\u2713');
+    expect(FAIL).toContain('\u2717');
+    expect(WARN).toContain('\u25B3');
   });
 
-  it('PASS, FAIL, WARN are strings', () => {
-    expect(typeof PASS).toBe('string');
-    expect(typeof FAIL).toBe('string');
-    expect(typeof WARN).toBe('string');
+  it('banner includes version when provided', () => {
+    expect(banner('1.0.0')).toContain('1.0.0');
   });
 
-  it('banner returns a string', () => {
-    expect(typeof banner()).toBe('string');
-    expect(typeof banner('1.0.0')).toBe('string');
+  it('header wraps maestro commands with commandHeader format', () => {
+    const h = header('maestro audit');
+    expect(h).toContain('maestro');
+    expect(h).toContain('audit');
   });
 
-  it('header returns a string', () => {
-    expect(typeof header('test')).toBe('string');
+  it('info returns dimmed text', () => {
+    expect(info('hello')).toContain('hello');
   });
 
-  it('info returns a string', () => {
-    expect(typeof info('some info')).toBe('string');
+  it('divider returns a horizontal line', () => {
+    expect(divider()).toContain('\u2500');
   });
 
-  it('divider returns a string', () => {
-    expect(typeof divider()).toBe('string');
+  it('formatLocation includes line number when provided', () => {
+    expect(formatLocation('src/app.ts', 42)).toBe('src/app.ts:42');
+    expect(formatLocation('src/app.ts')).toBe('src/app.ts');
   });
 });

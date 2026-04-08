@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { inferProjectType, readPkg, extractDescription } from '../src/commands/scan-detectors.js';
 
 describe('scan-detectors', () => {
-  it('inferProjectType takes a cwd string and returns a string', () => {
+  it('inferProjectType returns a project type string for any directory', () => {
     const type = inferProjectType('/tmp');
-    expect(typeof type).toBe('string');
+    expect(type.length).toBeGreaterThan(0);
   });
 
   it('readPkg returns null for a directory without package.json', () => {
@@ -12,8 +12,8 @@ describe('scan-detectors', () => {
     expect(pkg).toBeNull();
   });
 
-  it('extractDescription returns a string', () => {
+  it('extractDescription returns placeholder for directory without manifest', () => {
     const desc = extractDescription('/tmp');
-    expect(typeof desc).toBe('string');
+    expect(desc).toContain('no description found');
   });
 });

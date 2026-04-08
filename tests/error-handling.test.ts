@@ -31,6 +31,14 @@ describe('analyzeErrorHandling', () => {
     expect(findings.filter(f => f.rule === 'empty-catch')).toHaveLength(0);
   });
 
+  it('flags bare except in Python', () => {
+    const ctx = makeContext({
+      'src/app.py': 'try:\n  do_thing()\nexcept:\n  pass\n',
+    }, 'python');
+    const findings = analyzeErrorHandling(ctx);
+    expect(findings.some(f => f.rule === 'bare-except')).toBe(true);
+  });
+
   it('skips test files', () => {
     const ctx = makeContext({
       'tests/app.test.ts': 'try { doThing(); } catch (e) { }\n',

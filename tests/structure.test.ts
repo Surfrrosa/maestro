@@ -15,10 +15,10 @@ function makeContext(files: Record<string, string>, stack: 'node' | 'python' = '
 }
 
 describe('analyzeStructure', () => {
-  it('returns an array', () => {
+  it('returns empty findings for simple project', () => {
     const ctx = makeContext({ 'src/app.ts': 'export const x = 1;\n' });
     const findings = analyzeStructure(ctx);
-    expect(Array.isArray(findings)).toBe(true);
+    expect(findings).toHaveLength(0);
   });
 
   it('flags flat directories with many files', () => {

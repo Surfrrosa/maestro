@@ -15,10 +15,10 @@ function makeContext(files: Record<string, string>, stack: 'node' | 'python' = '
 }
 
 describe('analyzeConsistency', () => {
-  it('returns a findings array', () => {
+  it('returns empty findings for single file', () => {
     const ctx = makeContext({ 'src/app.ts': 'const x = 1;\n' });
     const findings = analyzeConsistency(ctx);
-    expect(Array.isArray(findings)).toBe(true);
+    expect(findings).toHaveLength(0);
   });
 
   it('detects mixed file naming conventions', () => {

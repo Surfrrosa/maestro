@@ -15,10 +15,10 @@ function makeContext(files: Record<string, string>, stack: 'node' | 'python' = '
 }
 
 describe('analyzeTesting', () => {
-  it('returns a findings array', () => {
+  it('returns empty findings when no tests exist', () => {
     const ctx = makeContext({ 'src/app.ts': 'export function main() {}' });
     const findings = analyzeTesting(ctx);
-    expect(Array.isArray(findings)).toBe(true);
+    expect(findings).toHaveLength(0);
   });
 
   it('flags source files without tests when project has some tests', () => {

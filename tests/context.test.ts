@@ -27,10 +27,9 @@ describe('getContent', () => {
     expect(content).toBe('');
   });
 
-  it('caches the result on subsequent calls', () => {
+  it('reads from the live fileContents map', () => {
     const ctx = makeContext({ 'src/app.ts': 'hello' });
     getContent(ctx, 'src/app.ts');
-    // Mutate the map to verify it reads from cache
     ctx.fileContents.set('src/app.ts', 'modified');
     const content = getContent(ctx, 'src/app.ts');
     expect(content).toBe('modified');
