@@ -9,6 +9,6 @@ export const JS_KEYWORDS = new Set(['if', 'else', 'for', 'while', 'do', 'switch'
 
 /** Determines whether a file path is a test file */
 export function isTestFile(file: string): boolean {
-  return file.includes('.test.') || file.includes('.spec.') ||
-    file.includes('__tests__/') || file.startsWith('tests/') || file.startsWith('test/');
+  return /(?:^|\/)(?:__tests__|tests?|__mocks__|__fixtures__|fixtures)\//.test(file)
+    || /\.(?:test|spec|mock)\.[^.]+$/.test(file);
 }

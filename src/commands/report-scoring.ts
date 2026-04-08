@@ -1,6 +1,6 @@
 import { basename } from 'node:path';
 import { runAuditChecks, type AuditCheck } from './audit-checks.js';
-import { runQualityAnalysis } from '../analyzers/index.js';
+import { runQualityAnalysis, computeGrade } from '../analyzers/index.js';
 import { runSecurityScan, type SecurityFinding } from './security.js';
 import { runDepsAnalysis, type DepFinding } from './deps-scanner.js';
 import { today } from '../utils/fs.js';
@@ -71,14 +71,6 @@ function computeCompositeScore(audit: number, quality: number, security: number,
     security * SECTION_WEIGHTS.security +
     deps * SECTION_WEIGHTS.deps;
   return Math.round(weighted / total);
-}
-
-function computeGrade(score: number): string {
-  if (score >= 90) return 'A';
-  if (score >= 80) return 'B';
-  if (score >= 70) return 'C';
-  if (score >= 60) return 'D';
-  return 'F';
 }
 
 export function buildAttentionItems(
@@ -205,7 +197,7 @@ export function formatClipboardReport(result: ReportResult): string {
   return lines.join('\n');
 }
 
-function formatSecuritySummary(bySeverity: Record<string, number>): string {
+export function formatSecuritySummary(bySeverity: Record<string, number>): string {
   const parts: string[] = [];
   if (bySeverity.critical) parts.push(`${bySeverity.critical} critical`);
   if (bySeverity.high) parts.push(`${bySeverity.high} high`);
@@ -214,7 +206,7 @@ function formatSecuritySummary(bySeverity: Record<string, number>): string {
   return parts.length > 0 ? parts.join(', ') : 'No issues';
 }
 
-function formatDepsSummary(byCategory: Record<string, number>): string {
+export function formatDepsSummary(byCategory: Record<string, number>): string {
   const parts: string[] = [];
   if (byCategory.unused) parts.push(`${byCategory.unused} unused`);
   if (byCategory.phantom) parts.push(`${byCategory.phantom} phantom`);

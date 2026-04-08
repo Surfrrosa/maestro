@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { parseSessionLogs, type ParsedSession } from '../utils/sessions.js';
-import { header, PASS, FAIL, WARN, divider, palette, section } from '../utils/format.js';
+import { header, PASS, FAIL, divider, palette, section } from '../utils/format.js';
 
 export interface BugEntry {
   description: string;

@@ -6,11 +6,6 @@ import { header, info, divider, PASS, FAIL, WARN, gradeDisplay, section, palette
 import { copyToClipboard } from '../utils/fs.js';
 import type { QualityReport, CategoryScore } from '../analyzers/types.js';
 
-function gradeColor(grade: string): typeof chalk {
-  const colors: Record<string, string> = { A: palette.SCORE_A, B: palette.SCORE_B, C: palette.SCORE_C, D: palette.SCORE_D, F: palette.SCORE_F };
-  return chalk.hex(colors[grade] || '#ECEFF4');
-}
-
 function renderCategory(cat: CategoryScore): void {
   const icon = cat.score >= 80 ? PASS : cat.score >= 50 ? WARN : FAIL;
   const color = cat.score >= 80 ? chalk.hex(palette.PASS_C) : cat.score >= 50 ? chalk.hex(palette.WARN_C) : chalk.hex(palette.FAIL_C);

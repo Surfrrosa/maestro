@@ -32,7 +32,7 @@ function scoreCategory(category: QualityCategory, findings: QualityFinding[]): C
   return { category, score, findings, maxDeductions: weight, deductions };
 }
 
-function computeGrade(score: number): 'A' | 'B' | 'C' | 'D' | 'F' {
+export function computeGrade(score: number): 'A' | 'B' | 'C' | 'D' | 'F' {
   if (score >= 90) return 'A';
   if (score >= 80) return 'B';
   if (score >= 70) return 'C';

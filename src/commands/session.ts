@@ -97,7 +97,7 @@ sessionCommand
     writeFile(filepath, generateSessionLog(date));
 
     if (!options.quiet) {
-      const { commandHeader, SYM: sym, palette: pal, hint: fmtHint } = await import('../utils/format.js');
+      const { commandHeader, SYM: sym, hint: fmtHint } = await import('../utils/format.js');
       console.log(commandHeader('session start'));
       console.log(`  ${sym.plus} docs/sessions/${filename}`);
       console.log(chalk.dim(`\n  Fill in your objectives before starting work.\n`));

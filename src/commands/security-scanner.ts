@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { glob } from 'glob';
 import { fileExists, readFile } from '../utils/fs.js';
+import { isTestFile } from '../analyzers/patterns.js';
 
 export interface SecurityFinding {
   severity: 'critical' | 'high' | 'medium' | 'low';
@@ -31,11 +32,6 @@ export const SECRET_PATTERNS: Array<{ regex: RegExp; name: string }> = [
 ];
 
 const SCAN_FILE_LIMIT = 500;
-
-export function isTestFile(file: string): boolean {
-  return /(?:^|\/)(?:__tests__|tests?|__mocks__|__fixtures__|fixtures)\//.test(file)
-    || /\.(?:test|spec|mock)\.[^.]+$/.test(file);
-}
 
 export function scanLineForSecret(line: string, file: string, lineNum: number): SecurityFinding | null {
   if (file === '.env') return null;

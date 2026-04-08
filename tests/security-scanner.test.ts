@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { SECRET_PATTERNS, runSecurityScan, scanLineForSecret, isTestFile } from '../src/commands/security-scanner.js';
+import { SECRET_PATTERNS, runSecurityScan, scanLineForSecret } from '../src/commands/security-scanner.js';
+import { isTestFile } from '../src/analyzers/patterns.js';
 
 describe('security-scanner', () => {
   it('SECRET_PATTERNS has entries', () => {

@@ -2,30 +2,13 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { header, info, divider, scoreBar, gradeDisplay, FAIL, section, palette, hint, successBanner } from '../utils/format.js';
 import { copyToClipboard } from '../utils/fs.js';
-import { runReport, formatClipboardReport, type ReportResult } from './report-scoring.js';
+import { runReport, formatClipboardReport, formatSecuritySummary, formatDepsSummary, type ReportResult } from './report-scoring.js';
 
 export { runReport, type ReportResult, type AttentionItem } from './report-scoring.js';
 
 function renderSectionLine(label: string, score: number, detail: string): void {
   const scoreColor = score >= 80 ? chalk.hex(palette.PASS_C) : score >= 50 ? chalk.hex(palette.WARN_C) : chalk.hex(palette.FAIL_C);
   console.log(`  ${label.padEnd(16)} ${scoreColor.bold(`${score}/100`)}   ${chalk.dim(detail)}`);
-}
-
-function formatSecurityDetail(bySeverity: Record<string, number>): string {
-  const parts: string[] = [];
-  if (bySeverity.critical) parts.push(`${bySeverity.critical} critical`);
-  if (bySeverity.high) parts.push(`${bySeverity.high} high`);
-  if (bySeverity.medium) parts.push(`${bySeverity.medium} medium`);
-  if (bySeverity.low) parts.push(`${bySeverity.low} low`);
-  return parts.length > 0 ? parts.join(', ') : 'No issues';
-}
-
-function formatDepsDetail(byCategory: Record<string, number>): string {
-  const parts: string[] = [];
-  if (byCategory.unused) parts.push(`${byCategory.unused} unused`);
-  if (byCategory.phantom) parts.push(`${byCategory.phantom} phantom`);
-  if (byCategory.license) parts.push(`${byCategory.license} license`);
-  return parts.length > 0 ? parts.join(', ') : 'All clean';
 }
 
 function renderAttentionItems(result: ReportResult): void {
@@ -51,9 +34,9 @@ function renderSections(result: ReportResult): void {
   renderSectionLine('Quality', result.sections.quality.score,
     `Grade ${result.sections.quality.grade}   ${result.sections.quality.totalFindings} finding(s)`);
   renderSectionLine('Security', result.sections.security.score,
-    formatSecurityDetail(result.sections.security.bySeverity));
+    formatSecuritySummary(result.sections.security.bySeverity));
   renderSectionLine('Dependencies', result.sections.deps.score,
-    formatDepsDetail(result.sections.deps.byCategory));
+    formatDepsSummary(result.sections.deps.byCategory));
 }
 
 function handleReportFooter(options: { clipboard?: boolean; ci?: number }, result: ReportResult): void {
