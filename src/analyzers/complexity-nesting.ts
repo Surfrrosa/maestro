@@ -1,5 +1,6 @@
 import type { QualityFinding } from './types.js';
 import { FUNC_PATTERN, PYTHON_DEF_PATTERN, JS_KEYWORDS } from './patterns.js';
+import { type ScannerState, scanBracesInLine } from '../utils/string-scanner.js';
 
 function isControlFlowBrace(line: string, braceIndex: number): boolean {
   const left = line.substring(0, braceIndex).trimEnd();
@@ -36,46 +37,35 @@ export function analyzeNestingDepth(content: string, file: string, stack: string
   return analyzeJsNesting(content, file, maxNesting);
 }
 
-interface BraceState {
+interface BraceState extends ScannerState {
   braceStack: boolean[];
   controlDepth: number;
-  inString: boolean;
-  stringChar: string;
   currentFuncName?: string;
   funcBraceStart: number;
 }
 
 function scanLineCharacters(line: string, state: BraceState): number {
   let lineMaxDepth = state.controlDepth;
-  for (let j = 0; j < line.length; j++) {
-    const ch = line[j];
-    if (state.inString) {
-      if (ch === state.stringChar && line[j - 1] !== '\\') state.inString = false;
-      continue;
-    }
-    if (ch === '"' || ch === "'" || ch === '`') {
-      state.inString = true;
-      state.stringChar = ch;
-      continue;
-    }
-    if (ch === '/' && line[j + 1] === '/') break;
-    if (ch === '{') {
-      const isControl = isControlFlowBrace(line, j);
+  scanBracesInLine(
+    line,
+    state,
+    (col) => {
+      const isControl = isControlFlowBrace(line, col);
       state.braceStack.push(isControl);
       if (isControl) {
         state.controlDepth++;
         if (state.controlDepth > lineMaxDepth) lineMaxDepth = state.controlDepth;
       }
-    }
-    if (ch === '}') {
+    },
+    () => {
       const wasControl = state.braceStack.pop();
       if (wasControl) state.controlDepth--;
       if (state.funcBraceStart >= 0 && state.braceStack.length <= state.funcBraceStart) {
         state.currentFuncName = undefined;
         state.funcBraceStart = -1;
       }
-    }
-  }
+    },
+  );
   return lineMaxDepth;
 }
 

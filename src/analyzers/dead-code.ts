@@ -96,16 +96,19 @@ function buildImportGraph(ctx: AnalyzerContext): ImportGraph {
   return graph;
 }
 
-function buildPythonImportGraph(content: string, file: string, graph: ImportGraph, ctx: AnalyzerContext): void {
-  const patterns = [
-    /^from\s+(\.[\w.]*)\s+import\s+(.+)/gm,
-    /^import\s+(\.[\w.]+)/gm,
-  ];
+function linkImportsFromPatterns(
+  content: string,
+  file: string,
+  graph: ImportGraph,
+  ctx: AnalyzerContext,
+  patterns: RegExp[],
+  transform: (raw: string) => string = (s) => s,
+): void {
   for (const pattern of patterns) {
     let match;
     pattern.lastIndex = 0;
     while ((match = pattern.exec(content)) !== null) {
-      const resolved = resolveImport(match[1].replace(/\./g, '/'), file, ctx);
+      const resolved = resolveImport(transform(match[1]), file, ctx);
       if (resolved) {
         graph.imports.get(file)!.add(resolved);
         if (!graph.importedBy.has(resolved)) graph.importedBy.set(resolved, new Set());
@@ -113,6 +116,17 @@ function buildPythonImportGraph(content: string, file: string, graph: ImportGrap
       }
     }
   }
+}
+
+function buildPythonImportGraph(content: string, file: string, graph: ImportGraph, ctx: AnalyzerContext): void {
+  linkImportsFromPatterns(
+    content,
+    file,
+    graph,
+    ctx,
+    [/^from\s+(\.[\w.]*)\s+import\s+(.+)/gm, /^import\s+(\.[\w.]+)/gm],
+    (raw) => raw.replace(/\./g, '/'),
+  );
 
   const exportPatterns = /^(?:def|class|async\s+def)\s+(\w+)/gm;
   let expMatch;
@@ -124,23 +138,11 @@ function buildPythonImportGraph(content: string, file: string, graph: ImportGrap
 }
 
 function buildJsImportGraph(content: string, file: string, graph: ImportGraph, ctx: AnalyzerContext): void {
-  const importPatterns = [
+  linkImportsFromPatterns(content, file, graph, ctx, [
     /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g,
     /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
     /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
-  ];
-  for (const pattern of importPatterns) {
-    let match;
-    pattern.lastIndex = 0;
-    while ((match = pattern.exec(content)) !== null) {
-      const resolved = resolveImport(match[1], file, ctx);
-      if (resolved) {
-        graph.imports.get(file)!.add(resolved);
-        if (!graph.importedBy.has(resolved)) graph.importedBy.set(resolved, new Set());
-        graph.importedBy.get(resolved)!.add(file);
-      }
-    }
-  }
+  ]);
 
   extractJsExports(content, graph.exports.get(file)!);
 }

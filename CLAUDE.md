@@ -50,10 +50,6 @@ npm test
 Matches test coverage by filename pattern, not by tracing imports. A test file that covers multiple modules gives credit to none of them unless the name matches. `quality.test.ts` tested 7 modules but none got credit.
 Files affected: `src/analyzers/testing.ts`
 
-### Duplicate string-scanner state machine (Medium)
-The character-by-character parser that tracks string context and brace depth is copy-pasted across three analyzer files.
-Files affected: `src/analyzers/complexity-function-length.ts`, `src/analyzers/complexity-nesting.ts`, `src/analyzers/hygiene.ts`
-
 ### Security scanner bypasses AnalyzerContext (Low)
 Runs its own glob calls independently instead of sharing the file list already built by `buildContext()`. Results in 3-4 redundant filesystem traversals per scan.
 Files affected: `src/commands/security-scanner.ts`

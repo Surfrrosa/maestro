@@ -1,6 +1,7 @@
 import type { QualityFinding, AnalyzerContext } from './types.js';
 import { getContent } from './context.js';
 import { FUNC_PATTERN, PYTHON_DEF_PATTERN, JS_KEYWORDS, isTestFile } from './patterns.js';
+import { createScannerState, scanBracesInLine } from '../utils/string-scanner.js';
 
 export function analyzeHygiene(ctx: AnalyzerContext): QualityFinding[] {
   const findings: QualityFinding[] = [];
@@ -38,11 +39,10 @@ function buildFunctionMap(lines: string[], stack: string): Map<number, string> {
 
 function buildJsFunctionMap(lines: string[]): Map<number, string> {
   const funcMap = new Map<number, string>();
+  const scanner = createScannerState();
   let braceDepth = 0;
   let funcBraceStart = -1;
   let currentFunc = '';
-  let inString = false;
-  let stringChar = '';
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -55,27 +55,18 @@ function buildJsFunctionMap(lines: string[]): Map<number, string> {
       }
     }
 
-    for (let j = 0; j < line.length; j++) {
-      const ch = line[j];
-      if (inString) {
-        if (ch === stringChar && line[j - 1] !== '\\') inString = false;
-        continue;
-      }
-      if (ch === '"' || ch === "'" || ch === '`') {
-        inString = true;
-        stringChar = ch;
-        continue;
-      }
-      if (ch === '/' && line[j + 1] === '/') break;
-      if (ch === '{') braceDepth++;
-      if (ch === '}') {
+    scanBracesInLine(
+      line,
+      scanner,
+      () => { braceDepth++; },
+      () => {
         braceDepth--;
         if (funcBraceStart >= 0 && braceDepth <= funcBraceStart) {
           currentFunc = '';
           funcBraceStart = -1;
         }
-      }
-    }
+      },
+    );
 
     if (currentFunc) funcMap.set(i + 1, currentFunc);
   }

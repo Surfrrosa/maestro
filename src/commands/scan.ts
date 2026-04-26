@@ -2,10 +2,11 @@ import { Command } from 'commander';
 import { confirm } from '@inquirer/prompts';
 import chalk from 'chalk';
 import { join, basename } from 'node:path';
-import { fileExists, readFile, writeFile, ensureDir, today, detectStack } from '../utils/fs.js';
+import { fileExists, writeFile, ensureDir, today, detectStack } from '../utils/fs.js';
 import { generateSessionLog } from '../templates/session-log.js';
 import { generateSessionIndex } from '../templates/session-index.js';
 import { generateSecurityChecklist } from '../templates/security.js';
+import { writeEnvExampleIfMissing } from '../utils/sanitize-env.js';
 import {
   type ScannedProject,
   inferProjectType,
@@ -170,18 +171,9 @@ function writeSecurityChecklist(cwd: string, scan: ScannedProject, symbols: { pl
 }
 
 function writeEnvExample(cwd: string, symbols: { plus: string }): void {
-  if (!fileExists(join(cwd, '.env')) || fileExists(join(cwd, '.env.example'))) return;
-  const envContent = readFile(join(cwd, '.env'));
-  const sanitized = envContent
-    .split('\n')
-    .map(line => {
-      if (line.startsWith('#') || !line.includes('=')) return line;
-      const eqIndex = line.indexOf('=');
-      return `${line.substring(0, eqIndex)}=your_value_here`;
-    })
-    .join('\n');
-  writeFile(join(cwd, '.env.example'), sanitized);
-  console.log(`  ${symbols.plus} .env.example (generated from .env, values redacted)`);
+  if (writeEnvExampleIfMissing(cwd)) {
+    console.log(`  ${symbols.plus} .env.example (generated from .env, values redacted)`);
+  }
 }
 
 export const scanCommand = new Command('scan')

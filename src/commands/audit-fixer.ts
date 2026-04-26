@@ -1,9 +1,10 @@
 import { join } from 'node:path';
-import { fileExists, readFile, writeFile, ensureDir, detectStack, today } from '../utils/fs.js';
+import { fileExists, writeFile, ensureDir, detectStack, today } from '../utils/fs.js';
 import { SYM } from '../utils/format.js';
 import { generateClaudeMd } from '../templates/claude-md.js';
 import { generateSessionIndex } from '../templates/session-index.js';
 import { generateSessionLog } from '../templates/session-log.js';
+import { writeEnvExampleIfMissing } from '../utils/sanitize-env.js';
 import type { AuditCheck } from './audit-checks.js';
 
 function fixClaudeMd(cwd: string, projectName: string): void {
@@ -35,19 +36,9 @@ function fixSessionStructure(cwd: string, projectName: string, checkName: string
 }
 
 function fixEnvExample(cwd: string): void {
-  if (!fileExists(join(cwd, '.env')) || fileExists(join(cwd, '.env.example'))) return;
-  const envContent = readFile(join(cwd, '.env'));
-  const sanitized = envContent
-    .split('\n')
-    .map(line => {
-      if (line.startsWith('#') || !line.includes('=')) return line;
-      const eqIndex = line.indexOf('=');
-      const key = line.substring(0, eqIndex);
-      return `${key}=your_value_here`;
-    })
-    .join('\n');
-  writeFile(join(cwd, '.env.example'), sanitized);
-  console.log(`  ${SYM.plus} Generated .env.example from .env (values replaced with placeholders)`);
+  if (writeEnvExampleIfMissing(cwd)) {
+    console.log(`  ${SYM.plus} Generated .env.example from .env (values replaced with placeholders)`);
+  }
 }
 
 export function applyFixes(cwd: string, checks: AuditCheck[]): void {

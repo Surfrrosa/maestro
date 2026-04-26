@@ -27,6 +27,8 @@ export default defineConfig([
       'src/templates/design-system.ts',
       'src/utils/fs.ts',
       'src/utils/format.ts',
+      'src/utils/string-scanner.ts',
+      'src/utils/sanitize-env.ts',
       'src/analyzers/types.ts',
       'src/analyzers/patterns.ts',
       'src/analyzers/context.ts',

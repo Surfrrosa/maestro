@@ -1,5 +1,6 @@
 import type { QualityFinding } from './types.js';
 import { FUNC_PATTERN, PYTHON_DEF_PATTERN } from './patterns.js';
+import { createScannerState, scanBracesInLine } from '../utils/string-scanner.js';
 
 export function analyzeFunctionLengths(content: string, file: string, stack: string, maxFuncLines: number): QualityFinding[] {
   if (stack === 'python') {
@@ -52,19 +53,17 @@ function analyzePythonFunctionLengths(content: string, file: string, maxFuncLine
 function analyzeJsFunctionLengths(content: string, file: string, maxFuncLines: number): QualityFinding[] {
   const findings: QualityFinding[] = [];
   const lines = content.split('\n');
-  const funcPattern = FUNC_PATTERN;
+  const scanner = createScannerState();
   let braceDepth = 0;
   let funcStart = -1;
   let funcName = '';
   let funcBraceStart = 0;
-  let inString = false;
-  let stringChar = '';
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
     if (funcStart < 0 || braceDepth <= funcBraceStart) {
-      const match = line.match(funcPattern);
+      const match = line.match(FUNC_PATTERN);
       if (match && line.includes('{')) {
         funcStart = i;
         funcName = match[1] || match[2] || match[3] || 'anonymous';
@@ -72,27 +71,18 @@ function analyzeJsFunctionLengths(content: string, file: string, maxFuncLines: n
       }
     }
 
-    for (let j = 0; j < line.length; j++) {
-      const ch = line[j];
-      if (inString) {
-        if (ch === stringChar && line[j - 1] !== '\\') inString = false;
-        continue;
-      }
-      if (ch === '"' || ch === "'" || ch === '`') {
-        inString = true;
-        stringChar = ch;
-        continue;
-      }
-      if (ch === '/' && line[j + 1] === '/') break;
-      if (ch === '{') braceDepth++;
-      if (ch === '}') {
+    scanBracesInLine(
+      line,
+      scanner,
+      () => { braceDepth++; },
+      () => {
         braceDepth--;
         if (funcStart >= 0 && braceDepth <= funcBraceStart) {
           pushFuncLengthFinding(findings, file, funcName, i - funcStart + 1, funcStart, maxFuncLines);
           funcStart = -1;
         }
-      }
-    }
+      },
+    );
   }
 
   return findings;

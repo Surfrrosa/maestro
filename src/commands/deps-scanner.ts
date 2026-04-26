@@ -67,29 +67,39 @@ function extractPackagesFromContent(
   }
 }
 
-export async function scanNodeImports(cwd: string): Promise<Set<string>> {
-  const imported = new Set<string>();
-  const patterns = [
-    /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g,
-    /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
-    /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
-  ];
+const NODE_IMPORT_PATTERNS = [
+  /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g,
+  /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+  /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+];
 
+const NODE_IMPORT_IGNORE_BASE = [
+  '**/node_modules/**', '**/dist/**', '**/.git/**', '**/*.d.ts',
+  '**/*.test.*', '**/*.spec.*', 'tests/**',
+  '**/__tests__/**', '**/__mocks__/**', '**/__fixtures__/**',
+];
+
+async function collectNodeImports(cwd: string, extraIgnore: string[] = []): Promise<Set<string>> {
+  const imported = new Set<string>();
   const files = await glob('**/*.{ts,js,tsx,jsx}', {
     cwd,
-    ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/*.d.ts', '**/*.test.*', '**/*.spec.*', 'tests/**', '**/__tests__/**', '**/__mocks__/**', '**/__fixtures__/**'],
+    ignore: [...NODE_IMPORT_IGNORE_BASE, ...extraIgnore],
     maxDepth: 8,
   });
 
   for (const file of files) {
     try {
       const content = readFileSync(join(cwd, file), 'utf-8');
-      extractPackagesFromContent(content, patterns, imported);
+      extractPackagesFromContent(content, NODE_IMPORT_PATTERNS, imported);
     } catch {
       // Skip
     }
   }
   return imported;
+}
+
+export function scanNodeImports(cwd: string): Promise<Set<string>> {
+  return collectNodeImports(cwd);
 }
 
 function extractPythonPackages(content: string, imported: Set<string>): void {
@@ -336,30 +346,9 @@ async function scanNodeImportsScoped(cwd: string, scopePath: string): Promise<Se
   return imported;
 }
 
-async function scanRootImports(cwd: string, workspaces: Workspace[]): Promise<Set<string>> {
-  const imported = new Set<string>();
-  const patterns = [
-    /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g,
-    /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
-    /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
-  ];
-
+function scanRootImports(cwd: string, workspaces: Workspace[]): Promise<Set<string>> {
   const workspaceDirs = workspaces.map(ws => `${ws.path}/**`);
-  const files = await glob('**/*.{ts,js,tsx,jsx}', {
-    cwd,
-    ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/*.d.ts', '**/*.test.*', '**/*.spec.*', 'tests/**', '**/__tests__/**', '**/__mocks__/**', '**/__fixtures__/**', ...workspaceDirs],
-    maxDepth: 8,
-  });
-
-  for (const file of files) {
-    try {
-      const content = readFileSync(join(cwd, file), 'utf-8');
-      extractPackagesFromContent(content, patterns, imported);
-    } catch {
-      // Skip
-    }
-  }
-  return imported;
+  return collectNodeImports(cwd, workspaceDirs);
 }
 
 async function runWorkspaceDepsAnalysis(cwd: string, workspaces: Workspace[]): Promise<DepFinding[]> {
