@@ -36,6 +36,26 @@ npm run build
 npm test
 ```
 
+## Before Writing New Code
+
+Before adding a helper, analyzer, command, or template, search for
+existing ones first:
+
+- `rg "<symbol>" src/` for similar names or near-duplicates
+  (e.g. `formatDate` vs `formatDateString`)
+- Look in `src/utils/` for shared helpers (`fs.ts`, `format.ts`,
+  `string-scanner.ts`, `sanitize-env.ts`, `config.ts`, `sessions.ts`)
+- Look in `src/analyzers/` for analyzer patterns; analyzers share an
+  `AnalyzerContext` interface — extend that rather than re-globbing
+- For state-machine-style scanning, `src/utils/string-scanner.ts`
+  already handles strings/comments — extend it, don't reimplement
+- Test files map 1:1 to source files by name. Don't create a util that
+  would clash with an existing filename in another directory
+
+Don't add a new file for a one-off variant of an existing pattern.
+If you're about to copy-paste a file and tweak two values, extract a
+helper instead.
+
 ## Domain Rules
 
 - Commands in `src/commands/` must be split into handler (CLI wiring) + logic (testable functions). The handler file owns the Commander definition; the logic file exports pure functions.
