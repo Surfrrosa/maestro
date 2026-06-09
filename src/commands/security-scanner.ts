@@ -162,7 +162,7 @@ async function scanUnsafeExec(cwd: string): Promise<SecurityFinding[]> {
 
   const files = await glob('**/*.{ts,js,tsx,jsx,py}', {
     cwd,
-    ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/__pycache__/**', '**/*.test.*', '**/*.spec.*', '**/security.ts', '**/security-scanner.ts', '**/review.ts', '**/review-checks.ts', '**/changelog.ts'],
+    ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/__pycache__/**', '**/*.test.*', '**/*.spec.*', '**/security.ts', '**/security-scanner.ts', '**/review.ts', '**/review-checks.ts'],
     maxDepth: 6,
   });
 
