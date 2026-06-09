@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import { parseSessionLogs, type ParsedSession } from '../utils/sessions.js';
 import { header, PASS, FAIL, divider, palette, section } from '../utils/format.js';
 
-export interface BugEntry {
+interface BugEntry {
   description: string;
   firstSeen: string;
   firstFile: string;

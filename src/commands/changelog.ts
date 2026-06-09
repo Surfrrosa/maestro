@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { parseSessionLogs } from '../utils/sessions.js';
 import { writeFile } from '../utils/fs.js';
 import { header, divider } from '../utils/format.js';
@@ -30,8 +30,10 @@ function categorize(text: string): ChangelogEntry['category'] {
 
 function getGitLog(cwd: string, since?: string): Array<{ message: string; date: string }> {
   try {
-    const sinceArg = since ? `--since="${since}"` : '--max-count=50';
-    const output = execSync(`git log ${sinceArg} --format="%s|||%as"`, {
+    const args = ['log', '--format=%s|||%as'];
+    if (since) args.push(`--since=${since}`);
+    else args.push('--max-count=50');
+    const output = execFileSync('git', args, {
       cwd,
       encoding: 'utf-8',
       timeout: 10000,

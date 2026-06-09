@@ -10,7 +10,7 @@ import { applyFixes } from './audit-fixer.js';
 export { runAuditChecks, type AuditCheck } from './audit-checks.js';
 export { applyFixes } from './audit-fixer.js';
 
-export function generateBadge(score: number): string {
+function generateBadge(score: number): string {
   const color = score >= 80 ? 'brightgreen' : score >= 60 ? 'yellow' : score >= 40 ? 'orange' : 'red';
   return `![Maestro Score](https://img.shields.io/badge/maestro-${score}%2F100-${color})`;
 }

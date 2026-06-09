@@ -18,7 +18,7 @@ const NODE_BARE = [
 ];
 export const NODE_BUILTINS = new Set([...NODE_BARE, ...NODE_BARE.map(m => `node:${m}`)]);
 
-export const PYTHON_IMPORT_MAP: Record<string, string> = {
+const PYTHON_IMPORT_MAP: Record<string, string> = {
   cv2: 'opencv-python', PIL: 'pillow', sklearn: 'scikit-learn', yaml: 'pyyaml',
   bs4: 'beautifulsoup4', gi: 'pygobject', attr: 'attrs', dateutil: 'python-dateutil',
   dotenv: 'python-dotenv', jose: 'python-jose',
@@ -98,7 +98,7 @@ async function collectNodeImports(cwd: string, extraIgnore: string[] = []): Prom
   return imported;
 }
 
-export function scanNodeImports(cwd: string): Promise<Set<string>> {
+function scanNodeImports(cwd: string): Promise<Set<string>> {
   return collectNodeImports(cwd);
 }
 
@@ -137,7 +137,7 @@ export async function scanPythonImports(cwd: string): Promise<Set<string>> {
   return imported;
 }
 
-export function getDeclaredDeps(cwd: string, stack: string): Map<string, string> {
+function getDeclaredDeps(cwd: string, stack: string): Map<string, string> {
   const deps = new Map<string, string>();
 
   if (stack === 'node') {
@@ -202,7 +202,7 @@ function isGplLicense(license: string): boolean {
   return GPL_FAMILY.some(g => license.toUpperCase().includes(g.toUpperCase()));
 }
 
-export function checkLicenses(cwd: string, declaredDeps: Map<string, string>): DepFinding[] {
+function checkLicenses(cwd: string, declaredDeps: Map<string, string>): DepFinding[] {
   const findings: DepFinding[] = [];
   const pkgPath = join(cwd, 'package.json');
   if (!fileExists(pkgPath)) return findings;
