@@ -24,7 +24,7 @@ export function extractSection(content: string, heading: string): string[] {
     .filter(l => l && l !== '-' && !l.startsWith('<!--'));
 }
 
-export function parseSessionLog(filePath: string, fileName: string): ParsedSession {
+function parseSessionLog(filePath: string, fileName: string): ParsedSession {
   const content = readFile(filePath);
   const dateMatch = fileName.match(/^(\d{4}-\d{2}-\d{2})/);
   const date = dateMatch ? dateMatch[1] : '';

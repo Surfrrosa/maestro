@@ -88,7 +88,7 @@ function checkHealth(cwd: string): CheckResult {
   return { name: 'Project health', status: 'pass', detail: '', blocking: false };
 }
 
-export function runChecks(cwd: string): CheckResult[] {
+function runChecks(cwd: string): CheckResult[] {
   return [
     checkClaudeMd(cwd),
     checkLatestSession(cwd),

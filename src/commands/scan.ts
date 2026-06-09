@@ -54,7 +54,7 @@ function generateRunSection(scan: ScannedProject): string {
   return '```bash\n# (add your run commands here)\n```';
 }
 
-export function generateScannedClaudeMd(scan: ScannedProject): string {
+function generateScannedClaudeMd(scan: ScannedProject): string {
   return `# ${scan.name}
 
 ${scan.description}

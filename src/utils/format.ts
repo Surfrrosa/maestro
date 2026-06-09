@@ -97,10 +97,6 @@ export function formatLocation(file: string, line?: number): string {
 }
 
 // ── Text Helpers ─────────────────────────────────────────
-export function success(text: string): string {
-  return chalk.hex(PASS_C)(`  ${text}`);
-}
-
 export function error(text: string): string {
   return chalk.hex(FAIL_C)(`  ${text}`);
 }
