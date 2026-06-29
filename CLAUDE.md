@@ -82,3 +82,20 @@ When adding a dependency:
 1. Verify it's necessary (don't add libraries for one-time operations)
 2. Pin the exact version
 3. Document why it was added if non-obvious
+
+### CI Node version (lockfile gotcha)
+
+`.github/workflows/maestro.yml` pins `actions/setup-node` with `node-version: '22'`. Local environments may be on a newer Node (e.g., 24).
+
+This causes `package-lock.json` drift when running `npm install` or `npm audit fix` locally — the lockfile resolves optional/peer deps (notably `@emnapi/core`, `@emnapi/runtime`, `@emnapi/wasi-threads`, `@napi-rs/wasm-runtime`, `@tybys/wasm-util`) differently between Node versions. CI then fails `npm ci` with "Missing: X from lock file."
+
+**Fix:** Regenerate the lockfile under Node 22.
+
+```bash
+source ~/.nvm/nvm.sh
+nvm exec 22 npm install
+```
+
+(Direct `nvm use 22` then `npm install` may not work inside subshells — `nvm exec 22 <cmd>` is more reliable.)
+
+Caught mid-session 2026-06-09 during the maestro audit PR. ~15 minutes burned diagnosing the version mismatch before realizing.
