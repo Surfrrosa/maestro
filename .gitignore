@@ -5,3 +5,4 @@ dist/
 
 # Personal/local Claude context (see CLAUDE.md for committed shared rules)
 CLAUDE.local.md
+.claude/settings.local.json

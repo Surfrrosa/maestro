@@ -63,6 +63,7 @@ Starting fresh? Use `maestro init` instead of `scan`.
 |---------|-------------|
 | `maestro scan` | Scan existing project, generate docs |
 | `maestro init` | Scaffold a new project from scratch |
+| `maestro doctor` | Check your environment (Node version, npm/git availability, network, permissions) |
 | `maestro hooks install` | Install Claude Code + git hooks |
 
 ### Daily workflow

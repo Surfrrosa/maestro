@@ -1,15 +1,31 @@
 version: 2
+
+# Dependabot doesn't support 'quarterly' natively (only daily/weekly/monthly).
+# Grouping ALL updates (including majors) into a single PR per ecosystem
+# per month is the closest low-noise approximation.
 updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "monthly"
+    open-pull-requests-limit: 3
     groups:
-      minor-and-patch:
+      all-npm-updates:
+        applies-to: "version-updates"
         update-types:
+          - "major"
           - "minor"
           - "patch"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "monthly"
+    open-pull-requests-limit: 3
+    groups:
+      all-actions-updates:
+        applies-to: "version-updates"
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"

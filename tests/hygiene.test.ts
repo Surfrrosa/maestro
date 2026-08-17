@@ -108,4 +108,52 @@ describe('analyzeHygiene', () => {
     const findings = analyzeHygiene(ctx);
     expect(findings.some(f => f.rule === 'debug-statement')).toBe(true);
   });
+
+  it('ignores console.log inside double-quoted string literals', () => {
+    const ctx = makeContext({
+      'src/app.ts': 'const example = "console.log(foo)";\n',
+    });
+    const findings = analyzeHygiene(ctx);
+    expect(findings.filter(f => f.rule === 'debug-statement')).toHaveLength(0);
+  });
+
+  it('ignores console.log inside template literals', () => {
+    const ctx = makeContext({
+      'src/tpl.ts': 'const t = `<script>console.log("x")</script>`;\n',
+    });
+    const findings = analyzeHygiene(ctx);
+    expect(findings.filter(f => f.rule === 'debug-statement')).toHaveLength(0);
+  });
+
+  it('ignores // TODO inside string literals', () => {
+    const ctx = makeContext({
+      'src/tpl.ts': 'const help = "run // TODO before commit";\n',
+    });
+    const findings = analyzeHygiene(ctx);
+    expect(findings.filter(f => f.rule === 'tech-debt-marker')).toHaveLength(0);
+  });
+
+  it('ignores magic numbers inside string literals', () => {
+    const ctx = makeContext({
+      'src/msgs.ts': 'const label = "Timeout after 30000 seconds";\n',
+    });
+    const findings = analyzeHygiene(ctx);
+    expect(findings.filter(f => f.rule === 'magic-number')).toHaveLength(0);
+  });
+
+  it('preserves detection of real console.log outside strings on a mixed line', () => {
+    const ctx = makeContext({
+      'src/app.ts': 'const msg = "console.log(x)"; console.log("real");\n',
+    });
+    const findings = analyzeHygiene(ctx);
+    expect(findings.filter(f => f.rule === 'debug-statement')).toHaveLength(1);
+  });
+
+  it('preserves multi-line template literal masking across lines', () => {
+    const ctx = makeContext({
+      'src/tpl.ts': 'const html = `\nconsole.log("inside template");\n`;\n',
+    });
+    const findings = analyzeHygiene(ctx);
+    expect(findings.filter(f => f.rule === 'debug-statement')).toHaveLength(0);
+  });
 });

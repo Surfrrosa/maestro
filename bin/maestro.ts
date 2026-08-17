@@ -15,6 +15,7 @@ import { bugsCommand } from '../src/commands/bugs.js';
 import { reviewCommand } from '../src/commands/review.js';
 import { changelogCommand } from '../src/commands/changelog.js';
 import { reportCommand } from '../src/commands/report.js';
+import { doctorCommand } from '../src/commands/doctor.js';
 import { banner } from '../src/utils/format.js';
 
 const program = new Command();
@@ -24,13 +25,13 @@ const b = chalk.hex('#9580FF')('\u2022');
 program
   .name('maestro')
   .description('AI-native project scaffolding and development lifecycle CLI.')
-  .version('0.3.0');
+  .version('0.4.0');
 
-program.addHelpText('beforeAll', banner('0.3.0'));
+program.addHelpText('beforeAll', banner('0.4.0'));
 program.addHelpText('after', `
   ${b} Report     maestro report (full health check)
 
-  ${b} Setup      scan, init, hooks install
+  ${b} Setup      scan, init, doctor, hooks install
   ${b} Workflow   session, check, review
   ${b} Health     audit, quality, security, deps
   ${b} Insights   bugs, changelog, audit-all
@@ -53,5 +54,6 @@ program.addCommand(bugsCommand);
 program.addCommand(reviewCommand);
 program.addCommand(changelogCommand);
 program.addCommand(reportCommand);
+program.addCommand(doctorCommand);
 
 program.parse();
