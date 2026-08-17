@@ -37,3 +37,42 @@ export function scanBracesInLine(
     if (ch === '}') onClose(j);
   }
 }
+
+/**
+ * Return `line` with the contents of string literals replaced by spaces.
+ * Quote characters are preserved; non-string content (including comments)
+ * is untouched. Column positions are preserved so `.match().index` still
+ * refers to the same column as in the original line.
+ *
+ * State is mutated in place so multi-line template literals persist across
+ * calls. Callers must reuse a single state per file, reset with
+ * `createScannerState()` between files.
+ *
+ * Used by the hygiene analyzer to skip regex hits that fall inside string
+ * literals (e.g., `"console.log(x)"` should not trigger debug-statement).
+ * Line comments are intentionally NOT masked so real `// TODO` markers in
+ * source still register with tech-debt-marker checks.
+ */
+export function maskStringsOnly(line: string, state: ScannerState): string {
+  const out: string[] = [];
+  for (let j = 0; j < line.length; j++) {
+    const ch = line[j];
+    if (state.inString) {
+      if (ch === state.stringChar && line[j - 1] !== '\\') {
+        state.inString = false;
+        out.push(ch);
+      } else {
+        out.push(' ');
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === '`') {
+      state.inString = true;
+      state.stringChar = ch;
+      out.push(ch);
+      continue;
+    }
+    out.push(ch);
+  }
+  return out.join('');
+}

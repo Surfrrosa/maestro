@@ -10,10 +10,6 @@ Template string builders (generating markdown, HTML, config files) have differen
 - Template/generator functions: 80 lines
 - Configuration via `.maestrorc.json` `thresholds.functionLength` as object or number
 
-## Smarter Hygiene Detection
-
-The hygiene analyzer currently uses line-level regex matching, which produces false positives when TODO/FIXME/console.log appear inside string literals, template strings, or regex patterns. A lightweight string-context tracker (similar to the one used in nesting analysis) could skip lines where the match position falls inside a string or comment that's part of test fixture data.
-
 ## Per-Rule Ignore Patterns
 
 Allow users to suppress specific rules for specific file patterns in `.maestrorc.json`:

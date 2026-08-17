@@ -1,7 +1,7 @@
 import type { QualityFinding, AnalyzerContext } from './types.js';
 import { getContent } from './context.js';
 import { FUNC_PATTERN, PYTHON_DEF_PATTERN, JS_KEYWORDS, isTestFile } from './patterns.js';
-import { createScannerState, scanBracesInLine } from '../utils/string-scanner.js';
+import { createScannerState, scanBracesInLine, maskStringsOnly } from '../utils/string-scanner.js';
 
 export function analyzeHygiene(ctx: AnalyzerContext): QualityFinding[] {
   const findings: QualityFinding[] = [];
@@ -12,19 +12,22 @@ export function analyzeHygiene(ctx: AnalyzerContext): QualityFinding[] {
     const content = getContent(ctx, file);
     const lines = content.split('\n');
     const funcMap = buildFunctionMap(lines, ctx.stack);
+    const isPython = ctx.stack === 'python';
+    const maskScanner = isPython ? null : createScannerState();
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const lineNum = i + 1;
       const funcName = funcMap.get(lineNum);
+      const scanLine = maskScanner ? maskStringsOnly(line, maskScanner) : line;
 
-      const debugFinding = checkDebugStatements(line, lineNum, file, isTest, isCLI, ctx.stack, funcName);
+      const debugFinding = checkDebugStatements(scanLine, lineNum, file, isTest, isCLI, ctx.stack, funcName);
       if (debugFinding) findings.push(debugFinding);
 
-      const debtFinding = checkTechDebtMarkers(line, lineNum, file, funcName);
+      const debtFinding = checkTechDebtMarkers(scanLine, lineNum, file, funcName);
       if (debtFinding) findings.push(debtFinding);
 
-      const magicFinding = checkMagicNumbers(line, lineNum, file, isTest, funcName);
+      const magicFinding = checkMagicNumbers(scanLine, lineNum, file, isTest, funcName);
       if (magicFinding) findings.push(magicFinding);
     }
   }

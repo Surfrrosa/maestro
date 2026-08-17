@@ -74,6 +74,15 @@ Files affected: `src/analyzers/testing.ts`
 Runs its own glob calls independently instead of sharing the file list already built by `buildContext()`. Results in 3-4 redundant filesystem traversals per scan.
 Files affected: `src/commands/security-scanner.ts`
 
+### TypeScript 7 blocked on tsup ecosystem (Low, deferred)
+`tsup` 8.x bundles `rollup-plugin-dts@6.1.1` which uses a TS API removed in TypeScript 7 (`useCaseSensitiveFileNames`). PR #49 CI fails during build. Deferred via `@dependabot ignore this major version`. Revisit when tsup 9.x ships or a resolution override for `rollup-plugin-dts` becomes viable.
+
+### Chalk 6 defer — would force Node 22 minimum (Low, deferred)
+`chalk@6.0.0` requires Node.js 22 as a hard peer. Adopting it would bump maestro's own `engines.node` from `>=20.12.0` to `>=22.0.0`, breaking installs for users still on Node 20 (LTS through April 2026). PR #48 deferred via `@dependabot ignore this major version`. Revisit after Node 20 EOL (April 2026) or when there's a concrete user need for chalk 6 features (extended underline styles).
+
+### esbuild dev-server vuln — accepted risk (Low)
+`esbuild@0.27.3` (transitive via tsup) has an advisory (GHSA-g7r4-m6w7-qqqr) for arbitrary file read via the dev server on Windows. Not fixable via `npm audit fix` (deeply pinned in tsup 8.x). Accepted because: (a) dev-only dependency, not shipped to end users; (b) Windows-only; (c) requires running `esbuild --serve` which maestro doesn't do. Revisit if tsup 9.x ships with a newer esbuild.
+
 ## Dependencies
 
 All dependencies must be pinned to exact versions. No `^` or `~` prefixes.
